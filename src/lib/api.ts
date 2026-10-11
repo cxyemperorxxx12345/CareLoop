@@ -197,7 +197,8 @@ export const patientApi = {
 
 export const clinicianApi = {
   async patients(filters?: { name?: string; diagnosis?: string; risk?: string; department?: string }) {
-    let q = supabase.from('patients').select('*').order('discharge_date', { ascending: false });
+    // 软隐藏：过滤掉演示期残留的测试档案（is_hidden），不删除任何账号
+    let q = supabase.from('patients').select('*').eq('is_hidden', false).order('discharge_date', { ascending: false });
     if (filters?.name) q = q.ilike('name', `%${filters.name}%`);
     if (filters?.diagnosis) q = q.ilike('diagnosis', `%${filters.diagnosis}%`);
     if (filters?.risk && filters.risk !== 'all') q = q.eq('risk_level', filters.risk);

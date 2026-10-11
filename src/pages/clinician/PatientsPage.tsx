@@ -64,7 +64,8 @@ export function PatientsPage() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const { data } = await supabase.from('patients').select('department');
+      // 软隐藏：科室筛选项也排除残留测试档案
+      const { data } = await supabase.from('patients').select('department').eq('is_hidden', false);
       if (!alive) return;
       const set = new Set<string>();
       (data ?? []).forEach((d) => {

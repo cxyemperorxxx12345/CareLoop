@@ -80,7 +80,8 @@ export function ClinicianDashboardPage() {
         const today = todayStr();
         // 并行拉取四类数据
         const [pRes, aRes, fRes, mlRes, mpRes] = await Promise.all([
-          supabase.from('patients').select('id, name, risk_level'),
+          // 软隐藏：统计口径排除残留测试档案
+          supabase.from('patients').select('id, name, risk_level').eq('is_hidden', false),
           supabase.from('alerts').select('id, patient_id, level, source, detail, status, created_at').eq('status', 'open'),
           supabase.from('followup_items').select('id, patient_id, title, due_date, done').eq('done', false),
           // 今日用药打卡：依从率 = 今日已服 / 今日总应服
