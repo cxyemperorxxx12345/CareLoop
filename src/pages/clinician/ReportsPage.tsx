@@ -36,7 +36,7 @@ interface SymptomItem {
 interface ReportStats {
   period_days: number;
   adherence: { taken: number; skipped: number; snoozed: number; answered: number; compliance_rate: number };
-  vitals: { records: number; systolic_avg: number; diastolic_avg: number; heart_rate_avg: number; temperature_max: number };
+  vitals: { records: number; systolic_avg: number; diastolic_avg: number; heart_rate_avg: number; temperature_max: number; note?: string };
   symptoms: SymptomItem[];
   alerts: { total: number; open: number; red: number; yellow: number };
 }
@@ -81,6 +81,11 @@ function formatRelativeTime(iso: string): string {
 // 数值兜底：content 来自 jsonb，防御异常数据
 function num(v: unknown, fallback = 0): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+// 体征这类「可能没采集到」的数值用占位符显示，不要退化成 0 误导医护
+function numText(v: unknown, fallback = '—'): string {
+  return typeof v === 'number' && Number.isFinite(v) ? String(v) : fallback;
 }
 
 function pickPatient(row: ReportRow): ReportPatient | null {
@@ -310,11 +315,17 @@ export function ReportsPage() {
                       <div className="rounded-xl bg-muted p-3">
                         <p className="text-xs text-muted-foreground">体征摘要</p>
                         <p className="text-sm mt-1.5 leading-relaxed">
-                          血压均值 {num(stats.vitals?.systolic_avg)}/{num(stats.vitals?.diastolic_avg)} ·
-                          心率均值 {num(stats.vitals?.heart_rate_avg)}
+                          血压均值 {numText(stats.vitals?.systolic_avg)}/{numText(stats.vitals?.diastolic_avg)} ·
+                          心率均值 {numText(stats.vitals?.heart_rate_avg)}
                           <br />
-                          体温最高 {num(stats.vitals?.temperature_max)}℃ · 记录 {num(stats.vitals?.records)} 条
+                          体温最高 {numText(stats.vitals?.temperature_max)}℃ · 记录 {num(stats.vitals?.records)} 条
                         </p>
+                        {/* 存量扁平报告只有血压文字描述（迁移 00016 回填为 vitals.note） */}
+                        {stats.vitals?.note ? (
+                          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                            {stats.vitals.note}
+                          </p>
+                        ) : null}
                       </div>
                       {/* 预警统计 */}
                       <div className="rounded-xl bg-muted p-3">
@@ -326,7 +337,9 @@ export function ReportsPage() {
                         </p>
                       </div>
                     </div>
-                  ) : (
+                  ) : summary || symptoms.length > 0 ? null : (
+                    // 报告已有小结或症状内容时，不再显示「暂无统计数据」——
+                    // 存量报告早期是扁平结构（无 stats），会同时出现占位文案和完整小结
                     <p className="text-sm text-muted-foreground">本报告暂无统计数据</p>
                   )}
 

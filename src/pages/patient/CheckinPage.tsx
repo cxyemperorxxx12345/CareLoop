@@ -34,6 +34,36 @@ function num(v: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/**
+ * 体征合理区间表：集中管理，便于后续按临床口径统一调整。
+ * 未填写（null）一律放行，保持「可留空」语义，只在填了值时做区间校验。
+ */
+const VITAL_RANGES = {
+  heart_rate: { min: 30, max: 200, label: '心率', unit: '次/分' },
+  temperature: { min: 33, max: 42, label: '体温', unit: '℃' },
+  systolic: { min: 60, max: 260, label: '收缩压', unit: 'mmHg' },
+  diastolic: { min: 30, max: 180, label: '舒张压', unit: 'mmHg' },
+  // 任务包未指定，取值待确认：血糖（mmol/L）保守取 2.0–30.0
+  glucose: { min: 2, max: 30, label: '血糖', unit: 'mmol/L' },
+  // 任务包未指定，取值待确认：体重（kg）保守取 20–200
+  weight: { min: 20, max: 200, label: '体重', unit: 'kg' },
+} as const;
+
+type VitalRangeKey = keyof typeof VITAL_RANGES;
+
+/** 提交前统一校验：返回第一条不合规提示（温和归因式文案），全部合规返回 null */
+function findVitalRangeIssue(values: Record<VitalRangeKey, number | null>): string | null {
+  for (const key of Object.keys(VITAL_RANGES) as VitalRangeKey[]) {
+    const v = values[key];
+    if (v === null) continue; // 未填写：可留空，不校验
+    const { min, max, label, unit } = VITAL_RANGES[key];
+    if (v < min || v > max) {
+      return `${label}一般在 ${min}–${max} ${unit}之间，您填的是 ${v}，麻烦再核对一下～`;
+    }
+  }
+  return null;
+}
+
 export function CheckinPage() {
   const navigate = useNavigate();
   const [patient, setPatient] = useState<{ id: string } | null>(null);
@@ -86,6 +116,19 @@ export function CheckinPage() {
 
   const doSubmit = async () => {
     if (!patient || submitting) return;
+    // 提交入口统一做区间校验，多个字段越界只提示第一条
+    const rangeIssue = findVitalRangeIssue({
+      heart_rate: num(heartRate),
+      temperature: tempVal,
+      systolic: sysVal,
+      diastolic: diaVal,
+      glucose: num(glucose),
+      weight: num(weight),
+    });
+    if (rangeIssue) {
+      toast.error(rangeIssue);
+      return;
+    }
     setSubmitting(true);
     try {
       // 日粒度幂等写入：同一天重复打卡覆盖当日快照，不再裸 insert 造成堆积

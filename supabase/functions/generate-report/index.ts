@@ -58,12 +58,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const vRows = (vitals ?? []) as Array<{ systolic: number | null; diastolic: number | null; heart_rate: number | null; temperature: number | null }>;
   const nums = (arr: Array<number | null>) => arr.filter((v): v is number => v !== null);
   const avg = (arr: number[]) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null);
+  // 体温最高值：一条体温都没填时必须返回 null，不能退化成 0
+  // （旧写法 Math.max(...[], 0) 会得到 0，前端会显示成「体温最高 0℃」）
+  const temps = nums(vRows.map((v) => v.temperature));
   const vitalsSummary = {
     records: vRows.length,
     systolic_avg: avg(nums(vRows.map((v) => v.systolic))),
     diastolic_avg: avg(nums(vRows.map((v) => v.diastolic))),
     heart_rate_avg: avg(nums(vRows.map((v) => v.heart_rate))),
-    temperature_max: vRows.length ? Math.max(...nums(vRows.map((v) => v.temperature ?? null)).map((v) => Number(v)), 0) : null,
+    temperature_max: temps.length ? Math.max(...temps) : null,
   };
 
   const { data: symptoms } = await admin
