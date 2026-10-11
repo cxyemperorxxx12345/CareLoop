@@ -237,13 +237,6 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* 中央胶囊 */}
-          <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 z-20 text-center hidden md:block">
-            <p className="rounded-full bg-background/90 backdrop-blur border border-border px-5 py-2 text-sm font-medium shadow-sm">
-              三方协同，一条闭环
-            </p>
-          </div>
         </section>
 
         {/* Section 2: Loop */}
