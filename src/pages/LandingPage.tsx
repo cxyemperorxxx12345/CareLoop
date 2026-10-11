@@ -203,7 +203,7 @@ export const LandingPage: React.FC = () => {
             {/* 右：医护端 */}
             <div className="sig-deep-bg p-7 md:p-10 flex flex-col animate-curtain-right">
               <p className="sig-eyebrow sig-deep-muted">医护端 · Web 工作台</p>
-              <h2 className="mt-5 font-black text-[clamp(1.8rem,3.2vw,2.6rem)] leading-[1.3] text-background">
+              <h2 className="mt-4 font-black text-[clamp(1.7rem,3vw,2.4rem)] leading-[1.3]">
                 看得见的
                 <br />
                 风险信号
@@ -217,7 +217,7 @@ export const LandingPage: React.FC = () => {
                     <span className="text-[12px] font-medium tracking-widest rounded-full px-3 py-1 bg-triage-red-bg text-triage-red">
                       RED
                     </span>
-                    <p className="font-black text-background text-[15px]">陈桂芳 · 术后第 9 天 · 今晨自查</p>
+                    <p className="font-black text-foreground text-[15px]">陈桂芳 · 术后第 9 天 · 今晨自查</p>
                   </div>
                   <p className="sig-deep-muted mt-2 text-[13px] leading-[1.7]">
                     晨起胸闷、活动后气短，近 3 日收缩压 136-142mmHg，红旗规则直判，建议立即就医
@@ -228,7 +228,7 @@ export const LandingPage: React.FC = () => {
                     <span className="text-[12px] font-medium tracking-widest rounded-full px-3 py-1 bg-triage-amber-bg text-triage-amber">
                       YELLOW
                     </span>
-                    <p className="font-black text-background text-[15px]">周建国 · 59 岁 · 高血压 3 级</p>
+                    <p className="font-black text-foreground text-[15px]">周建国 · 59 岁 · 高血压 3 级</p>
                   </div>
                   <p className="sig-deep-muted mt-2 text-[13px] leading-[1.7]">
                     近 3 日收缩压 152-163mmHg，血压控制不稳，建议加密随访
@@ -333,7 +333,7 @@ export const LandingPage: React.FC = () => {
         {/* Section 2.5: 产品实景展示（愈见 CareLoop 自研界面高保真实景，严格居中自适应） */}
         <section id="showcase" className="py-12 md:py-20 bg-card/60 border-y border-border w-full max-w-full overflow-hidden">
           <div className="container max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="max-w-2xl mx-auto text-center md:text-left">
+            <div className="max-w-2xl mx-auto text-center">
               <p className="sig-eyebrow">产品实景 · 三端协同</p>
               <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
                 两部手机，<span className="text-primary">一台电脑</span>
@@ -345,8 +345,8 @@ export const LandingPage: React.FC = () => {
 
             <div className="mt-10 grid md:grid-cols-3 gap-8 md:gap-6 items-center justify-items-center">
               {/* 患者端实景手机模型（尺寸收小，自研界面，严格居中） */}
-              <div className="flex flex-col items-center w-full max-w-[17rem]">
-                <div className="w-[15.5rem] sm:w-[16.5rem] rounded-[2.5rem] p-2.5 bg-neutral-900 shadow-2xl border-2 border-neutral-700/60 mx-auto select-none">
+              <div className="flex flex-col items-center w-full md:max-w-[17rem]">
+                <div className="w-[15.5rem] rounded-[2.5rem] p-2.5 bg-neutral-900 shadow-2xl border-2 border-neutral-700/60 select-none">
                   {/* 灵动岛与听筒 */}
                   <div className="w-20 h-4 bg-black rounded-full mx-auto mb-2 flex items-center justify-end px-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-neutral-700" />
@@ -445,8 +445,8 @@ export const LandingPage: React.FC = () => {
               </div>
 
               {/* 家属端实景手机模型（待我处理 + 三动作） */}
-              <div className="flex flex-col items-center w-full max-w-[17rem]">
-                <div className="w-[15.5rem] sm:w-[16.5rem] rounded-[2.5rem] p-2.5 bg-neutral-900 shadow-2xl border-2 border-neutral-700/60 mx-auto select-none">
+              <div className="flex flex-col items-center w-full md:max-w-[17rem]">
+                <div className="w-[15.5rem] rounded-[2.5rem] p-2.5 bg-neutral-900 shadow-2xl border-2 border-neutral-700/60 select-none">
                   <div className="w-20 h-4 bg-black rounded-full mx-auto mb-2 flex items-center justify-end px-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-neutral-700" />
                   </div>
@@ -681,7 +681,7 @@ export const LandingPage: React.FC = () => {
                       <p className={`text-xs font-medium tracking-[0.2em] ${isLast ? 'text-triage-red' : 'text-muted-foreground'} sig-num`}>
                         {s.time}
                       </p>
-                      <h3 className={`mt-3 font-black text-2xl ${isLast ? 'text-background' : ''}`}>{s.title}</h3>
+                      <h3 className={`mt-3 font-black text-2xl ${isLast ? 'text-triage-red' : ''}`}>{s.title}</h3>
                       <p className={`mt-3 text-[15px] leading-[1.85] ${isLast ? 'sig-deep-muted' : 'text-muted-foreground'}`}>
                         {s.body}
                       </p>

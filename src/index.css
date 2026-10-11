@@ -68,10 +68,10 @@ All colors MUST be HSL.
     --sig-rose-soft: 184 43% 93%;
     --sig-cream: 210 29% 97%;
     --sig-ink: 222 47% 11%;
-    --sig-deep: 192 48% 13%;
-    --sig-deep-card: 192 42% 17%;
-    --sig-deep-border: 192 32% 28%;
-    --sig-deep-muted: 186 25% 76%;
+    --sig-deep: 184 40% 90%;
+    --sig-deep-card: 0 0% 100%;
+    --sig-deep-border: 186 14% 78%;
+    --sig-deep-muted: 190 15% 42%;
     /* 语义色四档（全站唯一定义，颜色+图标+文字三重编码） */
     --triage-green: 150 32% 36%;
     --triage-green-bg: 152 32% 93%;
