@@ -1,0 +1,24 @@
+{
+  "clarified": true,
+  "clarify_reason": "用户指令与现有应用已锁定完整视觉体系：主色青绿#0E7C86（DESIGN.md基准），本轮仅要求triage三色降饱和、介绍页非卡片式高密度排版、两手机+Mac实景，属品牌资产内的结构差异化，无新配色决策",
+  "snapshot": [
+    "home-1.html",
+    "home-2.html",
+    "home-3.html"
+  ],
+  "budget": 1,
+  "checked": [
+    "home-1.html",
+    "home-2.html",
+    "home-3.html",
+    "home-4.html"
+  ],
+  "round_open": false,
+  "first_round": false,
+  "sha": {
+    "home-1.html": "3f5bf26ae3dfa773518847b0e7c31526898e261ade2bc6d1ca588196d09aaeb7",
+    "home-2.html": "a23ee7eca34f22e5d6bea36b064ff0006f0515b1170e53d33d99737fb6b66559",
+    "home-3.html": "e7c2801de4d9093d0e856ad40afc8fdca7c0c385a2f9a0039cc3dbcbdd5c0134",
+    "home-4.html": "59cbb17fe5a8d2dc8f7a2dc9166464c5bddf03aad09a1fd6449bf54c612743c6"
+  }
+}

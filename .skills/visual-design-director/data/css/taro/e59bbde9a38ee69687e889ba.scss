@@ -1,0 +1,214 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* ============================================================
+   国风文艺 —— 朱砂红 × 米杏纸底 × 水墨青
+   做旧肌理、低饱和复古氛围，衬线字形与极细分割线。
+   字体：@font-face 仅 H5 端生效；小程序端需在 app.tsx 中通过
+   Taro.loadFontFace 加载同名字体后方可使用。
+   ============================================================ */
+
+@font-face {
+  font-family: 'SourceHanSerifCN';
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://resource-static.cdn.bcebos.com/fonts/SourceHanSerifCN-Bold.ttf') format('truetype');
+}
+
+@layer base {
+  :root {
+    /* 米杏纸底 / 深墨正文 */
+    --background: 40 43% 91%;
+    --foreground: 218 15% 32%;
+    --card: 42 45% 95%;
+    --card-foreground: 218 15% 32%;
+    --popover: 42 45% 96%;
+    --popover-foreground: 218 15% 32%;
+    /* 朱砂红：题名、印记、关键操作 */
+    --primary: 4 67% 39%;
+    --primary-foreground: 42 50% 96%;
+    --primary-glow: 4 55% 55%;
+    /* 浅松绿次级面 */
+    --secondary: 96 26% 78%;
+    --secondary-foreground: 4 67% 30%;
+    --muted: 40 30% 86%;
+    --muted-foreground: 218 12% 39%;
+    /* 苇叶青点缀 */
+    --accent: 92 32% 66%;
+    --accent-foreground: 100 32% 14%;
+    /* 更深墨色，用于标题 */
+    --ink: 218 20% 24%;
+    /* 水纹浅青 */
+    --water: 190 30% 74%;
+    /* 描金：仅用于细线与边饰 */
+    --gold: 38 62% 36%;
+    --destructive: 4 67% 42%;
+    --destructive-foreground: 42 50% 96%;
+    /* 极细边框，1px 或更轻 */
+    --border: 40 22% 78%;
+    --input: 40 22% 78%;
+    --ring: 4 67% 39%;
+    --radius: 0.5rem;
+    --chart-1: 4 67% 45%;
+    --chart-2: 190 34% 42%;
+    --chart-3: 92 32% 50%;
+    --chart-4: 38 58% 46%;
+    --chart-5: 218 20% 40%;
+    --gradient-primary: linear-gradient(135deg, hsl(4 67% 39%), hsl(20 66% 50%));
+    --gradient-subtle: linear-gradient(180deg, hsl(42 45% 95%), hsl(40 38% 88%));
+    --shadow-scroll: 0 8px 24px -12px hsl(218 25% 24% / 0.28);
+    --shadow-seal: 0 2px 8px -2px hsl(4 67% 39% / 0.35);
+    /* 侧栏沿用纸底与朱砂主色 */
+    --sidebar-background: 40 45% 93%;
+    --sidebar-foreground: 218 18% 28%;
+    --sidebar-primary: 4 67% 39%;
+    --sidebar-primary-foreground: 42 50% 96%;
+    --sidebar-accent: 40 30% 87%;
+    --sidebar-accent-foreground: 218 18% 28%;
+    --sidebar-border: 40 22% 78%;
+    --sidebar-ring: 4 67% 39%;
+  }
+
+  /* 暗色沿用暖纸色相，翻转为陈年墨褐，而非中性灰蓝 */
+  .dark {
+    --background: 30 14% 10%;
+    --foreground: 40 28% 90%;
+    --card: 28 12% 14%;
+    --card-foreground: 40 28% 90%;
+    --popover: 28 12% 15%;
+    --popover-foreground: 40 28% 90%;
+    --primary: 4 62% 46%;
+    --primary-foreground: 42 50% 96%;
+    --primary-glow: 4 55% 60%;
+    --secondary: 30 12% 20%;
+    --secondary-foreground: 40 28% 90%;
+    --muted: 28 12% 17%;
+    --muted-foreground: 38 14% 66%;
+    --accent: 92 26% 32%;
+    --accent-foreground: 40 28% 94%;
+    --ink: 40 28% 90%;
+    --water: 190 22% 30%;
+    --gold: 40 62% 58%;
+    --destructive: 4 62% 44%;
+    --destructive-foreground: 42 50% 96%;
+    --border: 30 10% 26%;
+    --input: 30 10% 26%;
+    --ring: 4 62% 52%;
+  }
+}
+
+@layer base {
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'SourceHanSerifCN', 'Songti SC', 'STSong', 'SimSun', serif;
+    line-height: 1.7;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：做旧纸张肌理 —— 双层极细噪点模拟拓印纸面 */
+  .paper-texture {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(hsl(218 20% 24% / 0.05) 1px, transparent 1px),
+      radial-gradient(hsl(38 40% 40% / 0.04) 1px, transparent 1px);
+    background-size: 14px 14px, 22px 22px;
+    background-position: 0 0, 7px 11px;
+  }
+  /* 朱砂题名：实色朱砂 + 极淡晕影，模拟墨在纸上的洇开 */
+  .ink-title {
+    color: hsl(var(--primary));
+    text-shadow: 0 1px 2px hsl(4 60% 30% / 0.18);
+  }
+  /* 朱砂渐变块面：用于章节眉头、条带等实体背景 */
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+    color: hsl(var(--primary-foreground));
+  }
+  .bg-gradient-subtle {
+    background-image: var(--gradient-subtle);
+  }
+  /* 印章方章：朱砂实底 + 轻描边 */
+  .seal-mark {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    box-shadow: var(--shadow-seal), inset 0 0 0 1px hsl(var(--primary-foreground) / 0.35);
+  }
+  /* 描金细线：极轻分割，替代重分割线 */
+  .hairline-gold {
+    height: 1px;
+    background-image: linear-gradient(90deg, transparent, hsl(var(--gold) / 0.55), transparent);
+  }
+  /* 书卷面：纸面渐变 + 柔和落影，模拟长卷摊开 */
+  .scroll-surface {
+    background-image: var(--gradient-subtle);
+    box-shadow: var(--shadow-scroll);
+    border: 1px solid hsl(var(--border));
+  }
+  /* 竖排文字，致敬传统书写 */
+  .writing-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+  }
+  .text-ink {
+    color: hsl(var(--ink));
+  }
+  .bg-water {
+    background-color: hsl(var(--water));
+  }
+  /* 水墨扩散入场 */
+  .animate-ink-in {
+    animation: ink-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* 长卷展开入场 */
+  .animate-unroll {
+    animation: unroll 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* 缓慢浮动，营造深远层次 */
+  .animate-float-slow {
+    animation: float-slow 3.6s ease-in-out infinite;
+  }
+}
+
+@keyframes ink-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes unroll {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ink-in,
+  .animate-unroll,
+  .animate-float-slow {
+    animation: none;
+  }
+}

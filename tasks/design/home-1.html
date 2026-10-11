@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!-- miaoda-super-design | title: 暖叙奶霜 | skeleton: vertical-narrative | sig: 用药时间做成药丸胶囊排印，tabular-nums等宽数字呼应真实药板 blister pack -->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>愈见 CareLoop · 出院患者全周期照护助手</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        container: { center: true, padding: '2rem', screens: { '2xl': '1400px' } },
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+            secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+            accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+            popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+            card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' }
+          },
+          borderRadius: {
+            lg: 'var(--radius)',
+            md: 'calc(var(--radius) - 2px)',
+            sm: 'calc(var(--radius) - 4px)'
+          },
+          keyframes: {
+            /* ===== KEYFRAMES:BEGIN ===== */
+            'float-up': { '0%': { opacity: '0', transform: 'translateY(26px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            'rise-in': { '0%': { opacity: '0', transform: 'translateY(36px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            'slide-soft': { '0%': { opacity: '0', transform: 'translateX(26px)' }, '100%': { opacity: '1', transform: 'translateX(0)' } },
+            /* ===== KEYFRAMES:END ===== */
+          },
+          animation: {
+            /* ===== ANIMATIONS:BEGIN ===== */
+            'float-up': 'float-up 0.7s cubic-bezier(.22,1,.36,1) forwards',
+            'rise-in': 'rise-in 0.8s cubic-bezier(.22,1,.36,1) forwards',
+            'slide-soft': 'slide-soft 0.7s cubic-bezier(.22,1,.36,1) forwards',
+            /* ===== ANIMATIONS:END ===== */
+          }
+        }
+      },
+      plugins: [
+        function ({ addVariant }) {
+          addVariant('intersect', '&:not([no-intersect])');
+        }
+      ]
+    };
+  </script>
+  <style>
+    /* ===== FONT-FACE:BEGIN ===== */
+    @font-face {
+      font-family: "ResourceHanRoundedCN";
+      src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Regular.ttf") format("truetype");
+      font-weight: 400;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "ResourceHanRoundedCN";
+      src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Medium.ttf") format("truetype");
+      font-weight: 500;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "ResourceHanRoundedCN";
+      src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Heavy.ttf") format("truetype");
+      font-weight: 900;
+      font-display: swap;
+    }
+    :root {
+      --font-body: "ResourceHanRoundedCN", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-synthesis: none;
+      line-break: strict;
+      overflow-wrap: break-word;
+    }
+    body { font-family: var(--font-body); }
+    h1, h2, h3 { text-wrap: balance; }
+    p { text-wrap: pretty; }
+    /* ===== FONT-FACE:END ===== */
+
+    /* ===== DESIGN-TOKENS:BEGIN ===== */
+    :root {
+      --radius: 1.25rem;
+      --background: 15 75% 97%;
+      --foreground: 342 21% 22%;
+      --card: 20 60% 99%;
+      --card-foreground: 342 21% 22%;
+      --primary: 344 56% 66%;
+      --primary-foreground: 342 30% 12%;
+      --secondary: 347 40% 93%;
+      --secondary-foreground: 342 30% 30%;
+      --muted: 20 50% 94%;
+      --muted-foreground: 342 12% 40%;
+      --accent: 347 65% 83%;
+      --accent-foreground: 342 21% 22%;
+      --destructive: 350 70% 46%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 15 45% 90%;
+      --input: 15 45% 90%;
+      --ring: 344 56% 66%;
+      --popover: 20 60% 99%;
+      --popover-foreground: 342 21% 22%;
+    }
+    /* ===== DESIGN-TOKENS:END ===== */
+
+    /* ===== CUSTOM-TOKENS:BEGIN ===== */
+    :root {
+      --sig-rose: #D97A93;
+      --sig-rose-soft: #F0B7C3;
+      --sig-cream: #FDF4F1;
+      --sig-ink: #432C33;
+      --triage-green: #2E7D5B;
+      --triage-green-bg: #E8F3EC;
+      --triage-amber: #9A6510;
+      --triage-amber-bg: #F9EDD4;
+      --triage-red: #B4233D;
+      --triage-red-bg: #FBE7EB;
+    }
+    /* ===== CUSTOM-TOKENS:END ===== */
+
+    /* ===== SIGNATURE-CSS:BEGIN ===== */
+    .sig-frost {
+      background: color-mix(in srgb, #FFFFFF 62%, transparent);
+      backdrop-filter: blur(20px) saturate(140%);
+    }
+    .sig-pill {
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.03em;
+    }
+    .sig-arch { border-radius: 11rem 11rem 1.25rem 1.25rem; }
+    .sig-hairline { border-top: 1px solid hsl(var(--border)); }
+    .sig-eyebrow {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-size: 12px; letter-spacing: 0.18em; font-weight: 500;
+      color: hsl(var(--muted-foreground));
+    }
+    .sig-glow { background: radial-gradient(circle, #F0B7C3 0%, transparent 70%); }
+    .sig-deep { background: #3A242B; }
+    .sig-deep-card { background: #4A3038; border: 1px solid #5C4048; }
+    .sig-deep-row { background: #563A42; }
+    .sig-deep-muted { color: #C9A9B2; }
+    .sig-deep-btn { border-color: #6E4E57; color: #E8D5DA; }
+    .sig-tri-green-ink { color: #2A4A3C; }
+    .sig-tri-amber-ink { color: #4A3510; }
+    .sig-tri-red-ink { color: #5A1622; }
+    /* ===== SIGNATURE-CSS:END ===== */
+  </style>
+</head>
+<body class="bg-background text-foreground antialiased">
+
+  <header class="fixed top-4 inset-x-0 z-50 px-4">
+    <nav class="sig-frost max-w-6xl mx-auto rounded-full border border-border/70 px-4 md:px-6 py-2.5 md:py-3 flex items-center gap-4">
+      <a href="#hero" class="flex items-center gap-2.5 shrink-0">
+        <span class="w-9 h-9 rounded-full bg-primary text-primary-foreground font-black grid place-items-center text-lg">愈</span>
+        <span class="font-black text-base md:text-lg tracking-wide">愈见 CareLoop</span>
+      </a>
+      <div class="hidden md:flex items-center gap-7 text-sm ml-6 text-muted-foreground font-medium">
+        <a href="#pains" class="hover:text-foreground transition-colors">为什么需要</a>
+        <a href="#loop" class="hover:text-foreground transition-colors">照护闭环</a>
+        <a href="#features" class="hover:text-foreground transition-colors">核心功能</a>
+        <a href="#triage" class="hover:text-foreground transition-colors">症状分诊</a>
+        <a href="#clinician" class="hover:text-foreground transition-colors">医护端</a>
+      </div>
+      <a href="#cta" class="ml-auto shrink-0 rounded-full bg-primary text-primary-foreground text-sm font-medium px-4 md:px-5 py-2 md:py-2.5 hover:brightness-95 transition-all">开始使用</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="hero" class="relative overflow-hidden">
+      <div class="sig-glow absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-40 blur-3xl pointer-events-none z-0"></div>
+      <div class="container relative pt-32 pb-16 md:pt-40 md:pb-20">
+        <div class="grid md:grid-cols-[1.05fr_1fr] gap-12 md:gap-16 items-center">
+          <div class="relative z-10">
+            <p class="sig-eyebrow opacity-0 animate-float-up">全周期照护助手 · 慢病与术后康复人群</p>
+            <h1 class="mt-5 font-black leading-[1.18] text-[clamp(2.3rem,5vw,4rem)] opacity-0 animate-float-up [animation-delay:0.08s]">
+              出院之后，<br />仍有人<em class="not-italic text-primary">惦记</em>你的康复
+            </h1>
+            <p class="mt-6 text-base md:text-lg leading-[1.9] text-muted-foreground max-w-[34em] opacity-0 animate-float-up [animation-delay:0.16s]">
+              「愈见」把一张纸质出院小结，变成一套会主动提醒、会判断风险、会向医护报警的智能随访系统——在患者自己察觉之前，预见康复中的风险。
+            </p>
+            <div class="mt-8 flex flex-wrap items-center gap-3 opacity-0 animate-float-up [animation-delay:0.24s]">
+              <a href="#cta" class="rounded-full bg-primary text-primary-foreground font-medium px-7 py-3.5 text-base hover:brightness-95 transition-all">上传出院小结</a>
+              <a href="#clinician" class="rounded-full border border-border bg-card font-medium px-7 py-3.5 text-base hover:border-primary/50 transition-colors">医护端工作台</a>
+            </div>
+            <p class="mt-6 text-xs text-muted-foreground opacity-0 animate-float-up [animation-delay:0.32s]">* 本内容不构成医疗诊断，请遵医嘱</p>
+          </div>
+          <div class="relative opacity-0 animate-slide-soft [animation-delay:0.15s]">
+            <div class="sig-arch overflow-hidden aspect-[4/5] md:aspect-[4/4.6] bg-secondary">
+              <img src="/workspace/app-ezvlp6ds1hqa/tasks/design/assets/937918171758620752_0.jpg" alt="晨光中轻握的双手，温暖的照护氛围" class="w-full h-full object-cover" />
+            </div>
+            <div class="sig-frost absolute -bottom-6 -left-4 md:-left-10 rounded-3xl border border-border/70 px-5 py-4 shadow-lg max-w-[17rem] z-10">
+              <p class="text-xs text-muted-foreground">今日用药</p>
+              <p class="mt-1 font-black text-2xl leading-none">3<span class="text-muted-foreground font-medium text-base"> / 4 次</span></p>
+              <div class="mt-3 flex gap-2">
+                <span class="sig-pill text-xs font-medium rounded-full bg-secondary px-3 py-1.5">08:00</span>
+                <span class="sig-pill text-xs font-medium rounded-full bg-secondary px-3 py-1.5">12:00</span>
+                <span class="sig-pill text-xs font-medium rounded-full bg-primary text-primary-foreground px-3 py-1.5">18:00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="scenes" class="py-10">
+      <div class="container">
+        <div class="sig-hairline pt-8 flex flex-wrap items-center gap-x-8 gap-y-3">
+          <p class="text-xs text-muted-foreground tracking-widest shrink-0">同时命中赛题四大方向</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="text-sm font-medium rounded-full border border-border px-4 py-1.5">诊后回访监测</span>
+            <span class="text-sm font-medium rounded-full border border-border px-4 py-1.5">用药提醒</span>
+            <span class="text-sm font-medium rounded-full border border-border px-4 py-1.5">患者问答</span>
+            <span class="text-sm font-medium rounded-full border border-border px-4 py-1.5">医疗文档处理</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pains" class="py-16 md:py-24">
+      <div class="container">
+        <div class="max-w-2xl opacity-0 intersect:animate-rise-in">
+          <p class="sig-eyebrow">为什么需要愈见</p>
+          <h2 class="mt-4 font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.25]">出院后的四个<br /><span class="text-primary">「没人管」</span>时刻</h2>
+          <p class="mt-5 text-muted-foreground leading-[1.9]">慢病与术后康复的关键窗口期是出院后的 4～12 周，而传统的延续护理在这里几乎缺席。</p>
+        </div>
+        <div class="mt-12 grid md:grid-cols-[1.15fr_1fr] gap-6 md:gap-8">
+          <div class="opacity-0 intersect:animate-rise-in rounded-3xl bg-card border border-border p-7 md:p-9">
+            <p class="font-black text-4xl text-secondary leading-none">01</p>
+            <h3 class="mt-4 font-black text-xl">医嘱看不懂、记不住</h3>
+            <p class="mt-3 text-muted-foreground leading-[1.9] text-[15px]">纸质出院小结信息密集，中老年患者看不懂剂量与频次，回家就忘。</p>
+            <p class="mt-4 text-[15px] leading-[1.8]"><span class="font-medium text-primary">愈见的解法</span> · 拍照上传，AI 结构化提取，用大白话生成可执行计划。</p>
+          </div>
+          <div class="opacity-0 intersect:animate-rise-in [animation-delay:0.1s] rounded-3xl bg-card border border-border p-7 md:p-9 md:translate-y-10">
+            <p class="font-black text-4xl text-secondary leading-none">02</p>
+            <h3 class="mt-4 font-black text-xl">依从性差、易漏服</h3>
+            <p class="mt-3 text-muted-foreground leading-[1.9] text-[15px]">没人盯着，用药复诊全凭自觉，漏服一次没人知道。</p>
+            <p class="mt-4 text-[15px] leading-[1.8]"><span class="font-medium text-primary">愈见的解法</span> · 定时主动提醒 + 打卡，未确认自动逐级升级。</p>
+          </div>
+          <div class="opacity-0 intersect:animate-rise-in rounded-3xl bg-card border border-border p-7 md:p-9">
+            <p class="font-black text-4xl text-secondary leading-none">03</p>
+            <h3 class="mt-4 font-black text-xl">出院即失联</h3>
+            <p class="mt-3 text-muted-foreground leading-[1.9] text-[15px]">随访靠护士电话与微信群人工推进，无法规模化覆盖。</p>
+            <p class="mt-4 text-[15px] leading-[1.8]"><span class="font-medium text-primary">愈见的解法</span> · 系统自动随访，患者端 7×24 智能问答随叫随到。</p>
+          </div>
+          <div class="opacity-0 intersect:animate-rise-in [animation-delay:0.1s] rounded-3xl bg-card border border-border p-7 md:p-9 md:translate-y-10">
+            <p class="font-black text-4xl text-secondary leading-none">04</p>
+            <h3 class="mt-4 font-black text-xl">异常信号被错过</h3>
+            <p class="mt-3 text-muted-foreground leading-[1.9] text-[15px]">患者分不清「正常恢复」还是「危险信号」，延误处置。</p>
+            <p class="mt-4 text-[15px] leading-[1.8]"><span class="font-medium text-primary">愈见的解法</span> · AI 症状分诊三级评定，红色事件实时推送医护。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="loop" class="py-16 md:py-24 bg-secondary/60">
+      <div class="container">
+        <div class="max-w-2xl opacity-0 intersect:animate-rise-in">
+          <p class="sig-eyebrow">八步照护闭环</p>
+          <h2 class="mt-4 font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.25]">从一张纸，到一整套<br /><span class="text-primary">会自己运转</span>的照护系统</h2>
+        </div>
+        <div class="mt-12 relative">
+          <div class="hidden md:block absolute left-[7.4rem] top-2 bottom-2 w-px bg-border"></div>
+          <div class="grid gap-y-2 md:gap-y-0">
+            <div class="grid md:grid-cols-[7rem_1fr_1fr] gap-2 md:gap-6 md:py-6 items-baseline">
+              <p class="font-black text-3xl md:text-4xl text-primary leading-none opacity-0 intersect:animate-rise-in">01</p>
+              <h3 class="font-black text-lg opacity-0 intersect:animate-rise-in [animation-delay:0.06s]">拍照上传出院小结</h3>
+              <p class="text-muted-foreground text-[15px] leading-[1.85] opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">患者或家属用手机拍摄出院小结、医嘱单，即可开始。</p>
+            </div>
+            <div class="grid md:grid-cols-[7rem_1fr_1fr] gap-2 md:gap-6 md:py-6 md:border-t border-border items-baseline">
+              <p class="font-black text-3xl md:text-4xl text-primary leading-none opacity-0 intersect:animate-rise-in">02</p>
+              <h3 class="font-black text-lg opacity-0 intersect:animate-rise-in [animation-delay:0.06s]">AI 结构化解析</h3>
+              <p class="text-muted-foreground text-[15px] leading-[1.85] opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">多模态模型提取诊断、用药、复诊、注意事项四要素，患者校对确认后生效。</p>
+            </div>
+            <div class="grid md:grid-cols-[7rem_1fr_1fr] gap-2 md:gap-6 md:py-6 md:border-t border-border items-baseline">
+              <p class="font-black text-3xl md:text-4xl text-primary leading-none opacity-0 intersect:animate-rise-in">03</p>
+              <h3 class="font-black text-lg opacity-0 intersect:animate-rise-in [animation-delay:0.06s]">生成个性化随访计划</h3>
+              <p class="text-muted-foreground text-[15px] leading-[1.85] opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">用药时间槽、复诊节点与生活注意事项一键生成，全程大白话。</p>
+            </div>
+            <div class="grid md:grid-cols-[7rem_1fr_1fr] gap-2 md:gap-6 md:py-6 md:border-t border-border items-baseline">
+              <p class="font-black text-3xl md:text-4xl text-primary leading-none opacity-0 intersect:animate-rise-in">04</p>
+              <h3 class="font-black text-lg opacity-0 intersect:animate-rise-in [animation-delay:0.06s]">到点提醒，随手打卡</h3>
+              <p class="text-muted-foreground text-[15px] leading-[1.85] opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">到点主动推送提醒，患者打卡「已服用 / 稍后 / 跳过」全程留痕。</p>
+            </div>
+            <div class="grid md:grid-cols-[7rem_1fr_1fr] gap-2 md:gap-6 md:py-6 md:border-t border-border items-baseline">
+              <p class="font-black text-3xl md:text-4xl text-primary leading-none opacity-0 intersect:animate-rise-in">05</p>
+              <h3 class="font-black text-lg opacity-0 intersect:animate-rise-in [animation-delay:0.06s]">超时未确认，自动升级</h3>
+              <p class="text-muted-foreground text-[15px] leading-[1.85] opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">30 分钟未确认，按 短信 → 家属 → 护士站 逐级升级，确认即终止。</p>
+            </div>
+            <div class="grid md:grid-cols-[7rem_1fr_1fr] gap-2 md:gap-6 md:py-6 md:border-t border-border items-baseline">
+              <p class="font-black text-3xl md:text-4xl text-primary leading-none opacity-0 intersect:animate-rise-in">06</p>
+              <h3 class="font-black text-lg opacity-0 intersect:animate-rise-in [animation-delay:0.06s]">症状反馈 AI 分诊</h3>
+              <p class="text-muted-foreground text-[15px] leading-[1.85] opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">红旗规则硬性兜底 + 大模型综合判断，绿 / 黄 / 红三级评定。</p>
+            </div>
+            <div class="grid md:grid-cols-[7rem_1fr_1fr] gap-2 md:gap-6 md:py-6 md:border-t border-border items-baseline">
+              <p class="font-black text-3xl md:text-4xl text-primary leading-none opacity-0 intersect:animate-rise-in">07</p>
+              <h3 class="font-black text-lg opacity-0 intersect:animate-rise-in [animation-delay:0.06s]">预警直达医护端</h3>
+              <p class="text-muted-foreground text-[15px] leading-[1.85] opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">红黄事件生成预警单实时推送，护士处理动作与备注闭环留痕。</p>
+            </div>
+            <div class="grid md:grid-cols-[7rem_1fr_1fr] gap-2 md:gap-6 md:py-6 md:border-t border-border items-baseline">
+              <p class="font-black text-3xl md:text-4xl text-primary leading-none opacity-0 intersect:animate-rise-in">08</p>
+              <h3 class="font-black text-lg opacity-0 intersect:animate-rise-in [animation-delay:0.06s]">随访报告自动生成</h3>
+              <p class="text-muted-foreground text-[15px] leading-[1.85] opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">依从性、体征波动、症状与预警全维度汇总，医护一键导出归档。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="py-16 md:py-24">
+      <div class="container">
+        <div class="max-w-2xl opacity-0 intersect:animate-rise-in">
+          <p class="sig-eyebrow">六大核心功能</p>
+          <h2 class="mt-4 font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.25]">Must 清单，<span class="text-primary">全部做扎实</span></h2>
+        </div>
+        <div class="mt-10">
+          <div class="grid md:grid-cols-[6rem_13rem_1fr] gap-3 md:gap-6 py-6 items-baseline border-t border-border opacity-0 intersect:animate-rise-in">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-01</p>
+            <h3 class="font-black text-lg">文档解析</h3>
+            <p class="text-muted-foreground text-[15px] leading-[1.85]">出院小结多模态解析，结构化抽取诊断、用药、复诊与注意事项，支持校对修改。</p>
+          </div>
+          <div class="grid md:grid-cols-[6rem_13rem_1fr] gap-3 md:gap-6 py-6 items-baseline border-t border-border opacity-0 intersect:animate-rise-in">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-02</p>
+            <h3 class="font-black text-lg">用药打卡</h3>
+            <div class="text-muted-foreground text-[15px] leading-[1.85]">
+              <p>按时间槽分组展示每日用药，一键打卡已服 / 稍后 / 跳过，依从率自动统计。</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <span class="sig-pill text-xs font-medium rounded-full bg-secondary px-3.5 py-1.5">早 08:00</span>
+                <span class="sig-pill text-xs font-medium rounded-full bg-secondary px-3.5 py-1.5">午 12:00</span>
+                <span class="sig-pill text-xs font-medium rounded-full bg-secondary px-3.5 py-1.5">晚 18:00</span>
+                <span class="sig-pill text-xs font-medium rounded-full bg-secondary px-3.5 py-1.5">睡前 21:00</span>
+              </div>
+            </div>
+          </div>
+          <div class="grid md:grid-cols-[6rem_13rem_1fr] gap-3 md:gap-6 py-6 items-baseline border-t border-border opacity-0 intersect:animate-rise-in">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-03</p>
+            <h3 class="font-black text-lg">智能问答</h3>
+            <p class="text-muted-foreground text-[15px] leading-[1.85]">基于个人医嘱与知识库的双路检索问答，「这个药饭前吃还是饭后吃」有据可答，越界明确拒答并引导就医。</p>
+          </div>
+          <div class="grid md:grid-cols-[6rem_13rem_1fr] gap-3 md:gap-6 py-6 items-baseline border-t border-border opacity-0 intersect:animate-rise-in">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-04</p>
+            <h3 class="font-black text-lg">症状分诊</h3>
+            <p class="text-muted-foreground text-[15px] leading-[1.85]">红旗规则硬性兜底（胸痛 / 呼吸困难 / 高热 / 极值血压直判红色），无红旗时结合基础病综合分级。</p>
+          </div>
+          <div class="grid md:grid-cols-[6rem_13rem_1fr] gap-3 md:gap-6 py-6 items-baseline border-t border-border opacity-0 intersect:animate-rise-in">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-05</p>
+            <h3 class="font-black text-lg">预警中心</h3>
+            <p class="text-muted-foreground text-[15px] leading-[1.85]">红黄事件集中待办，触发源、患者信息与详情一目了然，人工录入处置结论方可闭环。</p>
+          </div>
+          <div class="grid md:grid-cols-[6rem_13rem_1fr] gap-3 md:gap-6 py-6 items-baseline border-t border-b border-border opacity-0 intersect:animate-rise-in">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-06</p>
+            <h3 class="font-black text-lg">提醒升级</h3>
+            <p class="text-muted-foreground text-[15px] leading-[1.85]">L0 站内 → L1 短信 → L2 家属 → L3 护士站四级状态机，幂等可重入，任意确认即终止升级。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="triage" class="py-16 md:py-24 bg-secondary/60">
+      <div class="container">
+        <div class="max-w-2xl opacity-0 intersect:animate-rise-in">
+          <p class="sig-eyebrow">症状自查 · 三级分诊</p>
+          <h2 class="mt-4 font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.25]">分不清「正常恢复」还是<br /><span class="text-primary">「危险信号」？</span>交给分级</h2>
+          <p class="mt-5 text-muted-foreground leading-[1.9]">悬停卡片查看每级处置建议。红黄两级自动生成预警单推送医护端。</p>
+        </div>
+        <div class="mt-10 grid md:grid-cols-3 gap-6">
+          <div class="group relative rounded-3xl bg-card border border-border p-7 overflow-hidden opacity-0 intersect:animate-rise-in min-h-[13rem]">
+            <div class="transition-opacity duration-300 group-hover:opacity-0">
+              <span class="inline-block text-xs font-medium tracking-widest rounded-full px-3.5 py-1.5" style="background: var(--triage-green-bg); color: var(--triage-green);">GREEN · 低风险</span>
+              <h3 class="mt-4 font-black text-xl">正常恢复期</h3>
+              <p class="mt-3 text-muted-foreground text-[15px] leading-[1.8]">伤口轻微发痒、偶尔乏力、情绪波动——多属于恢复过程中的正常现象。</p>
+            </div>
+            <div class="absolute inset-0 p-7 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-center" style="background: var(--triage-green-bg);">
+              <p class="text-xs font-medium tracking-widest" style="color: var(--triage-green);">处置建议</p>
+              <p class="mt-3 font-black text-xl" style="color: var(--triage-green);">居家观察</p>
+              <p class="sig-tri-green-ink mt-2 text-[15px] leading-[1.8]">按计划继续打卡用药与体征记录，无需额外干预。</p>
+            </div>
+          </div>
+          <div class="group relative rounded-3xl bg-card border border-border p-7 overflow-hidden opacity-0 intersect:animate-rise-in [animation-delay:0.08s] min-h-[13rem]">
+            <div class="transition-opacity duration-300 group-hover:opacity-0">
+              <span class="inline-block text-xs font-medium tracking-widest rounded-full px-3.5 py-1.5" style="background: var(--triage-amber-bg); color: var(--triage-amber);">YELLOW · 中风险</span>
+              <h3 class="mt-4 font-black text-xl">需要关注</h3>
+              <p class="mt-3 text-muted-foreground text-[15px] leading-[1.8]">持续乏力、血压血糖偏高、伤口隐痛——提示需要随访介入。</p>
+            </div>
+            <div class="absolute inset-0 p-7 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-center" style="background: var(--triage-amber-bg);">
+              <p class="text-xs font-medium tracking-widest" style="color: var(--triage-amber);">处置建议</p>
+              <p class="mt-3 font-black text-xl" style="color: var(--triage-amber);">联系随访护士</p>
+              <p class="sig-tri-amber-ink mt-2 text-[15px] leading-[1.8]">系统生成黄色预警单，护士 24 小时内电话随访并记录。</p>
+            </div>
+          </div>
+          <div class="group relative rounded-3xl bg-card border border-border p-7 overflow-hidden opacity-0 intersect:animate-rise-in [animation-delay:0.16s] min-h-[13rem]">
+            <div class="transition-opacity duration-300 group-hover:opacity-0">
+              <span class="inline-block text-xs font-medium tracking-widest rounded-full px-3.5 py-1.5" style="background: var(--triage-red-bg); color: var(--triage-red);">RED · 高风险</span>
+              <h3 class="mt-4 font-black text-xl">危险信号</h3>
+              <p class="mt-3 text-muted-foreground text-[15px] leading-[1.8]">胸痛、严重呼吸困难、意识不清、高热 38.5 以上——红旗直判。</p>
+            </div>
+            <div class="absolute inset-0 p-7 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-center" style="background: var(--triage-red-bg);">
+              <p class="text-xs font-medium tracking-widest" style="color: var(--triage-red);">处置建议</p>
+              <p class="mt-3 font-black text-xl" style="color: var(--triage-red);">立即就医</p>
+              <p class="sig-tri-red-ink mt-2 text-[15px] leading-[1.8]">红色预警实时推送医护站并同步紧急联系人，全程优先处置。</p>
+            </div>
+          </div>
+        </div>
+        <p class="mt-6 text-xs text-muted-foreground opacity-0 intersect:animate-rise-in">* 分级建议不构成医疗诊断，红旗症状以就医意见为准</p>
+      </div>
+    </section>
+
+    <section id="clinician" class="sig-deep py-16 md:py-24">
+      <div class="container">
+        <div class="grid md:grid-cols-2 gap-12 items-center">
+          <div class="opacity-0 intersect:animate-rise-in">
+            <p class="sig-eyebrow sig-deep-muted">医护端工作台</p>
+            <h2 class="mt-4 font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.25] text-background">一个看板，<br />管住一批患者的风险</h2>
+            <p class="sig-deep-muted mt-5 leading-[1.9] text-[15px]">预警按红黄优先级排序，异常自动上升；患者 360 视图覆盖档案、用药、随访、体征与事件时间线，随访报告一键生成。</p>
+            <div class="mt-8 grid grid-cols-2 gap-x-6 gap-y-4">
+              <p class="font-medium text-background flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>患者管理与风险排序</p>
+              <p class="font-medium text-background flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>患者详情 360 视图</p>
+              <p class="font-medium text-background flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>预警中心闭环处理</p>
+              <p class="font-medium text-background flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>随访报告自动生成</p>
+              <p class="font-medium text-background flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>知识库与宣教语料</p>
+              <p class="font-medium text-background flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>数据归属权限隔离</p>
+            </div>
+          </div>
+          <div class="relative opacity-0 intersect:animate-rise-in [animation-delay:0.12s]">
+            <div class="sig-deep-card rounded-3xl p-6 md:p-7">
+              <div class="flex items-center justify-between gap-4">
+                <p class="font-black text-background text-lg">预警中心</p>
+                <span class="text-xs font-medium rounded-full px-3 py-1" style="background: var(--triage-red-bg); color: var(--triage-red);">2 条待处理</span>
+              </div>
+              <div class="sig-deep-row mt-5 rounded-2xl p-5">
+                <div class="flex items-center gap-3">
+                  <span class="shrink-0 text-[12px] font-medium tracking-widest rounded-full px-3 py-1" style="background: var(--triage-red-bg); color: var(--triage-red);">RED</span>
+                  <p class="font-black text-background">陈桂芳 · 术后第 9 天</p>
+                </div>
+                <p class="sig-deep-muted mt-3 text-[15px] leading-[1.8]">症状自查：「伤口红肿渗液，发烧 38.5 度」——红旗规则直判红色，建议立即就医。</p>
+                <div class="mt-4 flex gap-3">
+                  <span class="text-sm font-medium rounded-full px-4 py-2 bg-primary text-primary-foreground">电话随访</span>
+                  <span class="sig-deep-btn text-sm font-medium rounded-full px-4 py-2 border">记录处置</span>
+                </div>
+              </div>
+              <div class="sig-deep-row mt-4 rounded-2xl p-5">
+                <div class="flex items-center gap-3">
+                  <span class="shrink-0 text-[12px] font-medium tracking-widest rounded-full px-3 py-1" style="background: var(--triage-amber-bg); color: var(--triage-amber);">YELLOW</span>
+                  <p class="font-black text-background">周建国 · 高血压第 3 周</p>
+                </div>
+                <p class="sig-deep-muted mt-3 text-[15px] leading-[1.8]">连续 2 次血压打卡 158/100，超出关注阈值，建议调整随访频次。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta" class="py-16 md:py-24">
+      <div class="container">
+        <div class="rounded-[2rem] bg-secondary p-10 md:p-16 text-center opacity-0 intersect:animate-rise-in relative overflow-hidden">
+          <div class="sig-glow absolute -top-20 -left-20 w-72 h-72 rounded-full opacity-50 blur-3xl pointer-events-none"></div>
+          <div class="relative">
+            <p class="sig-eyebrow justify-center">愈见 · CareLoop</p>
+            <h2 class="mt-4 font-black text-[clamp(1.8rem,3.6vw,2.8rem)] leading-[1.25]">让每一次康复<br />都有人<span class="text-primary">全程惦记</span></h2>
+            <p class="mt-5 text-muted-foreground leading-[1.9] max-w-[30em] mx-auto">患者端移动优先，医护端一个看板。上传出院小结，剩下的交给愈见。</p>
+            <div class="mt-8 flex flex-wrap justify-center gap-3">
+              <a href="#" class="rounded-full bg-primary text-primary-foreground font-medium px-8 py-3.5 text-base hover:brightness-95 transition-all">患者端 · 开始使用</a>
+              <a href="#" class="rounded-full bg-card border border-border font-medium px-8 py-3.5 text-base hover:border-primary/50 transition-colors">医护端 · 登录工作台</a>
+            </div>
+            <p class="mt-6 text-xs text-muted-foreground">* 本内容不构成医疗诊断，请遵医嘱</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="py-10 md:py-12">
+    <div class="container">
+      <div class="sig-hairline pt-8 grid md:grid-cols-4 gap-8 text-sm">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black grid place-items-center">愈</span>
+            <span class="font-black">愈见 CareLoop</span>
+          </div>
+          <p class="mt-3 text-muted-foreground text-[13px] leading-[1.8]">出院患者全周期照护助手<br />2026 iCAN AI 无代码智能体挑战赛参赛作品</p>
+        </div>
+        <div>
+          <p class="font-black">患者端</p>
+          <p class="mt-3 text-muted-foreground text-[13px] leading-[2]">今日概览 / 出院资料校对<br />用药打卡 / 随访时间轴<br />智能问答 / 症状自查<br />健康打卡 / 消息中心</p>
+        </div>
+        <div>
+          <p class="font-black">医护端</p>
+          <p class="mt-3 text-muted-foreground text-[13px] leading-[2]">患者管理 / 360 视图<br />预警中心 / 随访报告<br />知识库管理</p>
+        </div>
+        <div>
+          <p class="font-black">合规与安全</p>
+          <p class="mt-3 text-muted-foreground text-[13px] leading-[2]">数据归属权限隔离<br />AI 输出免责声明常驻<br />敏感操作审计日志</p>
+        </div>
+      </div>
+      <div class="sig-hairline mt-8 pt-6 flex flex-wrap items-center justify-between gap-3">
+        <p class="text-xs text-muted-foreground">© 2026 愈见 CareLoop · 演示数据均为虚构脱敏</p>
+        <p class="text-xs text-muted-foreground">本内容不构成医疗诊断，请遵医嘱</p>
+      </div>
+    </div>
+  </footer>
+
+  </main>
+
+  <!-- P4 丢弃以下全部 data-preview-only 脚本 -->
+  <script src="https://code.bdstatic.com/npm/tailwindcss-intersect@2.2.0/dist/observer.min.js" data-preview-only></script>
+  <script type="module" data-preview-only>
+    import { animate, inView, scroll, stagger } from "https://cdn.jsdelivr.net/npm/motion@12.23.25/+esm";
+    Object.assign(window, { animate, inView, scroll, stagger });
+    document.dispatchEvent(new Event('motion:ready'));
+  </script>
+  <script data-preview-only>
+    /* motion 函数由上面的 module 异步挂到 window；解构必须在此回调内，顶层解构会拿到 undefined */
+    document.addEventListener('motion:ready', () => {
+      const { animate, inView, scroll, stagger } = window;
+      /* ===== MOTION-SCRIPT:BEGIN ===== */
+      /* ===== MOTION-SCRIPT:END ===== */
+    });
+  </script>
+</body>
+</html>

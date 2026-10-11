@@ -1,0 +1,179 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* 粉黑画廊 —— 极简杂志式画廊美学
+   极深黑基底 #121212 / 深灰黑卡片 #1C1C1C / 高饱和粉色强调 / 柔和圆角 / 聚光灯式克制光晕
+   字体：@font-face 仅 H5 生效，小程序端需在 app.tsx 中通过 Taro.loadFontFace 加载同名字体 */
+
+@font-face {
+  font-family: 'HarmonyOSSans';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/HarmonyOSSans_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'HarmonyOSSans';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/HarmonyOSSans_Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 展厅表面：极深黑墙面 + 深灰黑展台 */
+    --background: 0 0% 7%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 98%;
+    /* 主色：高饱和粉，明度压到白字达标线（原 62% 保留为光晕/文字色） */
+    --primary: 340 80% 49%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 340 80% 62%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 340 80% 49%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 22%;
+    --input: 0 0% 20%;
+    --ring: 340 80% 62%;
+    --radius: 0.75rem;
+    --chart-1: 340 80% 62%;
+    --chart-2: 340 60% 46%;
+    --chart-3: 0 0% 78%;
+    --chart-4: 0 0% 52%;
+    --chart-5: 320 50% 68%;
+    --sidebar-background: 0 0% 9%;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 340 80% 49%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 16%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 22%;
+    --sidebar-ring: 340 80% 62%;
+    /* 材质：聚光灯粉晕 / 极浅展台投影 / 粉色渐变 */
+    --gradient-primary: linear-gradient(135deg, hsl(340 80% 55%), hsl(340 72% 72%));
+    --gradient-spotlight: radial-gradient(120% 80% at 50% 0%, hsl(340 80% 62% / 0.14), transparent 65%);
+    --shadow-gallery: 0 12px 32px -14px hsl(340 80% 62% / 0.26);
+    --shadow-plinth: 0 6px 18px -12px hsl(0 0% 0% / 0.8);
+  }
+
+  /* 主题本身即暗色，.dark 保持同值作兼容层 */
+  .dark {
+    --background: 0 0% 7%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 340 80% 49%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 340 80% 49%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 22%;
+    --input: 0 0% 20%;
+    --ring: 340 80% 62%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'HarmonyOSSans', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+@layer utilities {
+  /* 核心视觉签名：粉色聚光晕，作品被置于射灯下的柔和光斑 */
+  .bg-spotlight {
+    background-image: var(--gradient-spotlight);
+  }
+  /* 展台：深灰黑底 + 极细描边 + 克制投影 */
+  .plinth {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-plinth);
+  }
+  /* 粉色发光边：选中态与关键交互 */
+  .ring-glow {
+    border: 1px solid hsl(var(--primary-glow) / 0.55);
+    box-shadow: var(--shadow-gallery);
+  }
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+  .bg-gradient-spotlight {
+    background-image: var(--gradient-spotlight);
+  }
+  .text-glow {
+    color: hsl(var(--primary-glow));
+  }
+  /* 半透明暗遮罩，用于放大预览的沉浸底层（不依赖模糊） */
+  .scrim {
+    background-color: hsl(0 0% 4% / 0.86);
+  }
+  /* 画框圆角：作品图 8px，卡片沿用 --radius，操作件胶囊形 */
+  .radius-artwork {
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .radius-pill {
+    border-radius: 9999px;
+  }
+  /* 触摸上浮：画廊悬停感 */
+  .lift-hover {
+    transition: transform 220ms ease-out, box-shadow 220ms ease-out;
+  }
+  .lift-hover:active {
+    transform: translateY(-4rpx);
+    box-shadow: var(--shadow-gallery);
+  }
+  /* 作品置于聚光灯下的缩放弹入 */
+  .animate-spotlight-in {
+    animation: spotlight-in 250ms ease-out both;
+  }
+  /* 粉色光晕的缓慢呼吸 */
+  .animate-glow-breathe {
+    animation: glow-breathe 4s ease-in-out infinite;
+  }
+}
+
+@keyframes spotlight-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes glow-breathe {
+  0%,
+  100% {
+    box-shadow: 0 8px 24px -18px hsl(340 80% 62% / 0.2);
+  }
+  50% {
+    box-shadow: 0 12px 32px -12px hsl(340 80% 62% / 0.34);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spotlight-in,
+  .animate-glow-breathe {
+    animation: none;
+  }
+}

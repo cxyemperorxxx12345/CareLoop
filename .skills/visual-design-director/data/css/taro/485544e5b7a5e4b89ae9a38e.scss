@@ -1,0 +1,170 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* HUD工业风 · 工业级渲染控制台
+   曜石黑基底 / 深黑灰面板 / 浅灰正文 / 霓虹橙唯一强调色，直角零圆角、无柔和阴影。
+   字体：小程序端需在 app.tsx 中通过 Taro.loadFontFace 加载（H5 端走下面 @font-face）。 */
+
+@font-face {
+  font-family: 'ZCOOLKuHei';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/ZCOOLKuHei_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'AlibabaPuHuiTi';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/AlibabaPuHuiTi_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 直角控制台，禁止圆角 */
+    --radius: 0px;
+    /* 曜石黑基底 / 浅灰正文 */
+    --background: 0 0% 1%;
+    --foreground: 0 0% 88%;
+    /* 深黑灰面板 */
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 88%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 88%;
+    /* 霓虹橙：黑暗仪器中唯一生命信号，仅用于关键数值/进度/激光线 */
+    --primary: 16 100% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 88%;
+    /* 中灰辅助信息 */
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 16 100% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 42%;
+    --destructive-foreground: 0 0% 100%;
+    /* 统一深灰描边，直接分割信息区域 */
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 16 100% 50%;
+    /* 图表色克制在灰阶 + 橙，避免其他高饱和色 */
+    --chart-1: 16 100% 50%;
+    --chart-2: 0 0% 62%;
+    --chart-3: 0 0% 42%;
+    --chart-4: 16 80% 38%;
+    --chart-5: 0 0% 88%;
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 16 100% 50%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 88%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 16 100% 50%;
+    /* 非颜色-角色变量 */
+    --shadow-laser: 0 0 6px hsl(16 100% 50% / 0.9), 0 0 18px hsl(16 100% 50% / 0.45);
+  }
+
+  /* 主题本身即暗色控制台，.dark 保持同值作兼容层 */
+  .dark {
+    --background: 0 0% 1%;
+    --foreground: 0 0% 88%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 88%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 88%;
+    --primary: 16 100% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 88%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 16 100% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 16 100% 50%;
+  }
+}
+
+@layer base {
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'AlibabaPuHuiTi', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：霓虹橙激光线（单像素发光横线） */
+  .hud-laser {
+    height: 2px;
+    background-color: hsl(var(--primary));
+    box-shadow: var(--shadow-laser);
+  }
+  /* 控制台面板：直角硬边，不用阴影堆叠层级 */
+  .hud-panel {
+    background-color: hsl(var(--card));
+    border: 2px solid hsl(var(--border));
+    border-radius: 0;
+  }
+  /* 仪表盘刻度尺 */
+  .hud-ticks {
+    background-image: repeating-linear-gradient(
+      90deg,
+      hsl(var(--border)) 0 2px,
+      transparent 2px 16px
+    );
+  }
+  /* 工业屏幕颗粒噪点：细横扫描纹，模拟胶片与显示器质感 */
+  .hud-grain {
+    background-image: repeating-linear-gradient(
+      0deg,
+      hsl(0 0% 100% / 0.02) 0 2px,
+      transparent 2px 6px
+    );
+  }
+  /* 关键数值：等宽数字 + 橙色轻发光 */
+  .hud-metric {
+    color: hsl(var(--primary));
+    font-family: 'AlibabaPuHuiTi', ui-monospace, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    text-shadow: 0 0 12px hsl(var(--primary) / 0.5);
+  }
+  /* 标题：站酷酷黑 + 宽字距 */
+  .hud-title {
+    font-family: 'ZCOOLKuHei', 'PingFang SC', sans-serif;
+    letter-spacing: 0.04em;
+  }
+  /* 进度填充：橙色实心 + 线性推进，无缓动装饰 */
+  .hud-progress-fill {
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.6);
+    transition: width 300ms linear;
+  }
+  /* 机械响应：边框转橙 + 短促上移，按下压缩 */
+  .hud-press {
+    transition: border-color 90ms linear, transform 90ms linear;
+  }
+  .hud-press:active {
+    border-color: hsl(var(--primary));
+    transform: translateY(1px) scaleY(0.97);
+  }
+  /* 激光呼吸：仅用于活动状态指示 */
+  .hud-breathe {
+    animation: hudBreathe 2.4s ease-in-out infinite;
+  }
+  @keyframes hudBreathe {
+    0%,
+    100% { opacity: 0.45; }
+    50% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hud-breathe { animation: none; }
+  }
+}

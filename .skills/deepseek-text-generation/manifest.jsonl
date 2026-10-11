@@ -1,0 +1,1 @@
+{"name":"deepseek-text-generation","display_name":"文本生成大模型（DeepSeek）","description":"DeepSeek V4 Pro 文本生成与推理能力","has_scripts":true,"entrypoint":"SKILL.md"}

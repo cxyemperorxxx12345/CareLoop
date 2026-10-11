@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {collectMusic} from '../assets/music-stream.mjs';
+import {musicInput} from '../assets/contract.mjs';
+const stream=(s,n=13)=>new ReadableStream({start(c){const b=new TextEncoder().encode(s);for(let i=0;i<b.length;i+=n)c.enqueue(b.slice(i,i+n));c.close();}});
+const frame=(status,audio,info={})=>'data: '+JSON.stringify({data:{status,audio},base_resp:{status_code:0},extra_info:info})+'\r\n\r\n';
+const out=await collectMusic(stream(frame(1,'0102')+frame(2,'01020304',{audio_size:4,music_size:3})));
+assert.deepEqual([...out.chunks[0]],[1,2,3,4]);
+assert.equal((await collectMusic(stream(frame(1,'0102')+frame(2,'0304',{audio_size:4})))).chunks.length,2);
+assert.equal((await collectMusic(stream(frame(1,'0102')+frame(2,'',{audio_size:2})))).chunks.length,1);
+for(const s of [frame(1,'0102'),frame(1,'zz'),frame(2,''),frame(1,'01')+frame(2,'0203'), 'data: {bad}\n\n', 'data: {"base_resp":{"status_code":1000}}\n\n',frame(2,'0102',{audio_size:3}),'data: {}'])await assert.rejects(()=>collectMusic(stream(s)));
+assert.throws(()=>musicInput({model:'other'}));assert.throws(()=>musicInput({is_instrumental:true}));assert.throws(()=>musicInput({lyrics:'a'.repeat(3501)}));
+assert.equal(musicInput({prompt:'钢琴',is_instrumental:true}).model,'music-3.0');
+console.log('15 offline checks passed');

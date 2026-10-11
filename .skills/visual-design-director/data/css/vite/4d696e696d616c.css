@@ -1,0 +1,190 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 设计系统：Minimal —— 留白优先，极度克制
+   纯白基底 / 近黑深灰文字 / 冷灰次级 / 1px 细边，几乎无阴影无装饰色 */
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('https://resource-static.bj.bcebos.com/fonts/Montserrat-VariableFont_wght.woff2') format('woff2');
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.375rem;
+
+    /* 纯白主背景 / 深灰而非纯黑的正文 */
+    --background: 0 0% 100%;
+    --foreground: 220 39% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 39% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 39% 11%;
+
+    /* 主色即深灰，按钮弱化为文字重心 */
+    --primary: 220 39% 11%;
+    --primary-foreground: 0 0% 100%;
+
+    /* 次级背景：极微弱的层次差 */
+    --secondary: 220 25% 98%;
+    --secondary-foreground: 220 39% 11%;
+
+    --muted: 220 25% 98%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 220 20% 96%;
+    --accent-foreground: 220 39% 11%;
+
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* 1px 冷灰细边 */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 220 39% 11%;
+
+    --chart-1: 220 39% 11%;
+    --chart-2: 220 9% 46%;
+    --chart-3: 220 13% 69%;
+    --chart-4: 220 13% 84%;
+    --chart-5: 220 9% 60%;
+
+    --sidebar-background: 220 25% 98%;
+    --sidebar-foreground: 220 39% 11%;
+    --sidebar-primary: 220 39% 11%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 95%;
+    --sidebar-accent-foreground: 220 39% 11%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 220 39% 11%;
+  }
+
+  .dark {
+    /* 表面完全翻转为暗色，仍保持柔和低刺激对比 */
+    --background: 220 20% 9%;
+    --foreground: 220 14% 93%;
+    --card: 220 18% 12%;
+    --card-foreground: 220 14% 93%;
+    --popover: 220 18% 12%;
+    --popover-foreground: 220 14% 93%;
+    --primary: 220 14% 93%;
+    --primary-foreground: 220 20% 10%;
+    --secondary: 220 16% 15%;
+    --secondary-foreground: 220 14% 93%;
+    --muted: 220 16% 15%;
+    --muted-foreground: 220 10% 66%;
+    --accent: 220 16% 18%;
+    --accent-foreground: 220 14% 93%;
+    --destructive: 0 58% 53.5%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 12% 24%;
+    --input: 220 12% 24%;
+    --ring: 220 14% 93%;
+    --chart-1: 220 39% 25%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  html {
+    @apply bg-background;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Montserrat', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-weight: 400;
+    line-height: 1.75;
+    letter-spacing: 0.005em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat', 'PingFang SC', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+  }
+
+  ::selection {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+}
+
+@layer components {
+  /* 核心视觉签名：1px 发丝分隔线，替代阴影承担层次 */
+  .hairline-rule {
+    height: 1px;
+    background-color: hsl(var(--border));
+    border: 0;
+  }
+
+  /* 无阴影平面卡片：仅靠细边与留白成立 */
+  .flat-surface {
+    @apply border border-border bg-card;
+    box-shadow: none;
+  }
+
+  /* 文本型按钮：弱化色块，强调文字与下划线 */
+  .text-action {
+    @apply text-foreground;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    border-bottom: 1px solid hsl(var(--border));
+    transition: border-color 200ms ease-out, color 200ms ease-out;
+  }
+  .text-action:hover {
+    border-bottom-color: hsl(var(--foreground));
+  }
+
+  /* 留白节奏：模块之间的大间距 */
+  .airy-stack > * + * {
+    margin-top: 3rem;
+  }
+
+  /* 线性图形：统一描边、无填充 */
+  .stroke-only {
+    fill: none;
+    stroke: hsl(var(--foreground));
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* 沿网格线的线性入场：淡入 + 极小位移，无弹性 */
+  .grid-slide-in {
+    animation: grid-slide-in 600ms ease-out both;
+  }
+
+  @keyframes grid-slide-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* 纯淡入：内容加载用 */
+  .quiet-fade {
+    animation: quiet-fade 500ms ease-out both;
+  }
+
+  @keyframes quiet-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .grid-slide-in,
+    .quiet-fade { animation: none; }
+    .text-action { transition: none; }
+  }
+}

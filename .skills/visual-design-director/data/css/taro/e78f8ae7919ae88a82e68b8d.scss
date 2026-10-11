@@ -1,0 +1,214 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* 珊瑚节拍 —— 暖米白底 + 纯白卡面 + 珊瑚橙强调，浅色、通透、轻盈有节奏。
+   大圆角、轻阴影、浅灰细分割线；渐变只允许出现在占位色块上，界面主体保持干净。
+   小程序端需在 app.tsx 中通过 Taro.loadFontFace 加载两款字体。 */
+
+@font-face {
+  font-family: 'YouSheBiaoTiHei';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/YouSheBiaoTiHei_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ResourceHanRoundedCN';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 暖米白底 + 纯白卡面 */
+    --background: 40 33% 96%;
+    --foreground: 240 6% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 11%;
+    /* 珊瑚橙：明度压到白字达 AA，保留橙的暖度 */
+    --primary: 22 90% 41%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 24% 93%;
+    --secondary-foreground: 240 6% 11%;
+    --muted: 40 24% 93%;
+    --muted-foreground: 240 4% 40%;
+    /* 强调面：珊瑚淡橙底配深橙字，用于轻高亮圆角块 */
+    --accent: 24 90% 94%;
+    --accent-foreground: 22 80% 30%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 12% 90%;
+    --input: 40 12% 90%;
+    --ring: 22 90% 41%;
+    --radius: 1rem;
+    /* 唯一允许的渐变：柔和浅色占位块 */
+    --gradient-tile: linear-gradient(135deg, hsl(28 92% 88%), hsl(14 82% 84%));
+    --gradient-surface: linear-gradient(180deg, hsl(40 40% 98%), hsl(40 28% 94%));
+    /* 轻阴影，避免厚重投影 */
+    --shadow-soft: 0 1px 2px hsl(28 40% 40% / 0.06), 0 6px 20px hsl(28 40% 40% / 0.07);
+    --shadow-lift: 0 10px 30px hsl(28 45% 40% / 0.14);
+    --chart-1: 22 90% 48%;
+    --chart-2: 32 82% 56%;
+    --chart-3: 8 72% 46%;
+    --chart-4: 42 70% 52%;
+    --chart-5: 200 70% 44%;
+    --sidebar-background: 40 30% 97%;
+    --sidebar-foreground: 240 5% 26%;
+    --sidebar-primary: 22 90% 41%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 20% 93%;
+    --sidebar-accent-foreground: 240 6% 15%;
+    --sidebar-border: 40 14% 89%;
+    --sidebar-ring: 22 90% 41%;
+  }
+
+  /* 暗色：翻成暖调深褐夜面，沿用同一暖橙色相，不用中性灰蓝 */
+  .dark {
+    --background: 28 14% 11%;
+    --foreground: 38 25% 94%;
+    --card: 28 13% 15%;
+    --card-foreground: 38 25% 94%;
+    --popover: 28 13% 15%;
+    --popover-foreground: 38 25% 94%;
+    --primary: 24 92% 55%;
+    --primary-foreground: 26 30% 10%;
+    --secondary: 28 10% 20%;
+    --secondary-foreground: 38 25% 94%;
+    --muted: 28 10% 20%;
+    --muted-foreground: 34 12% 68%;
+    --accent: 24 40% 22%;
+    --accent-foreground: 26 92% 72%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 28 10% 24%;
+    --input: 28 10% 24%;
+    --ring: 24 92% 55%;
+  }
+}
+
+@layer base {
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'ResourceHanRoundedCN', -apple-system, 'PingFang SC', sans-serif;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-surface {
+    background-image: var(--gradient-surface);
+  }
+  .bg-gradient-tile {
+    background-image: var(--gradient-tile);
+  }
+  /* 核心视觉签名：轻盈上浮卡片 —— 大圆角 + 柔阴影，触摸时上浮并加深阴影 */
+  .card-lift {
+    border-radius: var(--radius);
+    background-color: hsl(var(--card));
+    box-shadow: var(--shadow-soft);
+    transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 220ms ease;
+  }
+  .card-lift:active {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .shadow-lift {
+    box-shadow: var(--shadow-lift);
+  }
+  /* 柔和浅色占位块：唯一允许的渐变元素 */
+  .gradient-tile {
+    background-image: var(--gradient-tile);
+  }
+  .gradient-surface {
+    background-image: var(--gradient-surface);
+  }
+  /* 标题字：中等厚度但不压迫的卡片层级 */
+  .font-title-heavy {
+    font-family: 'YouSheBiaoTiHei', 'ResourceHanRoundedCN', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+  }
+  /* 浅灰细分割线：紧凑行布局之间的唯一分隔 */
+  .divider-hairline {
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: hsl(var(--border));
+  }
+  /* 高亮圆角块：浅色底，不用强烈色块 */
+  .pill-highlight {
+    border-radius: 999rpx;
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
+    transition: background-color 180ms ease;
+  }
+  /* 珊瑚橙圆形控件：强调态的即时缩放反馈 */
+  .coral-knob {
+    border-radius: 999rpx;
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    transition: transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 180ms ease;
+  }
+  .coral-knob:active {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-lift);
+  }
+  /* 细进度轨：默认浅灰，激活态转珊瑚橙 */
+  .track-thin {
+    border-radius: 999rpx;
+    background-color: hsl(var(--border));
+    transition: background-color 180ms ease;
+  }
+  .track-thin-active {
+    background-color: hsl(var(--primary));
+  }
+
+  /* 节拍脉冲：轻微缩放呼吸，表达进行中的节奏感 */
+  @keyframes coral-beat {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.06);
+      opacity: 0.85;
+    }
+  }
+  .animate-beat {
+    animation: coral-beat 1600ms cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  }
+  /* 轻盈淡入上移 */
+  @keyframes coral-rise {
+    0% {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-rise {
+    animation: coral-rise 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-beat,
+    .animate-rise {
+      animation: none;
+    }
+    .card-lift,
+    .coral-knob,
+    .pill-highlight,
+    .track-thin {
+      transition: none;
+    }
+  }
+}

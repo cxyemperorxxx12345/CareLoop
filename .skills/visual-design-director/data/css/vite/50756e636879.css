@@ -1,0 +1,196 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 设计系统：Punchy —— 粗野主义
+   虚空黑底 / 纯白字 / 警示红强调，直角硬边、超粗描边、零柔化过渡 */
+
+@font-face {
+  font-family: 'DouyinSansBold';
+  src: url('https://resource-static.cdn.bcebos.com/fonts/DouyinSansBold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Source Han Mono SC';
+  src: url('https://resource-static.cdn.bcebos.com/fonts/SourceHanMonoSC-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0rem;
+
+    /* 虚空黑基底 / 清脆白文字 */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 100%;
+
+    /* 警示红为唯一强调色 */
+    --primary: 0 100% 46%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 0 0% 0%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 72%;
+
+    --accent: 0 100% 46%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 100% 42%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* 粗实描边 */
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 0 100% 56%;
+
+    --chart-1: 0 100% 56%;
+    --chart-2: 0 0% 100%;
+    --chart-3: 0 0% 62%;
+    --chart-4: 0 70% 38%;
+    --chart-5: 0 0% 32%;
+
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 100% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-ring: 0 100% 56%;
+  }
+
+  /* 主题本身即暗色，.dark 保持同值作兼容层 */
+  .dark {
+    --radius: 0rem;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 100% 46%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 72%;
+    --accent: 0 100% 46%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 100% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 0 100% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary)) hsl(var(--background));
+  }
+
+  html {
+    @apply bg-background;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Source Han Mono SC', 'PingFang SC', ui-monospace, monospace;
+    font-size: 1rem;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'DouyinSansBold', 'PingFang SC', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 0.92;
+    text-transform: uppercase;
+  }
+
+  ::selection {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+}
+
+@layer components {
+  /* 核心视觉签名：超粗硬边框（粗野结构线，直角零圆角） */
+  .brutal-frame {
+    border: 4px solid hsl(var(--border));
+    background: hsl(var(--card));
+  }
+
+  /* 红色警示分割线：贯穿版面的实心横杠 */
+  .warning-rule {
+    height: 6px;
+    background: hsl(var(--primary));
+  }
+
+  /* 硬边偏移阴影：无模糊、纯位移的实心块 */
+  .hard-offset {
+    box-shadow: 8px 8px 0 0 hsl(var(--primary));
+  }
+
+  /* 反色按压：触发即整体反转，无颜色过渡 */
+  .invert-press {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    transition: none;
+  }
+  .invert-press:hover,
+  .invert-press:focus-visible {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+  .invert-press:active {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    transform: translate(4px, 4px);
+  }
+
+  /* 超大压缩标题：贴边排布，制造张力 */
+  .punch-display {
+    font-family: 'DouyinSansBold', 'PingFang SC', sans-serif;
+    font-size: clamp(2.75rem, 11vw, 9rem);
+    line-height: 0.86;
+    letter-spacing: -0.05em;
+    text-transform: uppercase;
+  }
+
+  /* 红黑斜条警示带 */
+  .hazard-stripes {
+    background-image: repeating-linear-gradient(
+      45deg,
+      hsl(var(--primary)) 0 14px,
+      hsl(var(--background)) 14px 28px
+    );
+  }
+
+  /* 高速滑入：无淡入，纯位移瞬入 */
+  .slam-in {
+    animation: slam-in 180ms steps(4, end) both;
+  }
+
+  @keyframes slam-in {
+    from { transform: translateX(-12%); }
+    to { transform: translateX(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slam-in { animation: none; }
+    .invert-press:active { transform: none; }
+  }
+}

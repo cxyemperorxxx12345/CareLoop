@@ -1,0 +1,190 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* ============================================================
+   轻奢度假风 · 极简克制 / 大留白 / 暖金细线
+   温暖米白与纯白为底，深海军蓝作文字，中灰作辅助文字；
+   暖金仅作评分、徽章、按压态与细线点缀，近黑作 CTA。
+   禁止渐变滥用、高饱和色与过度装饰，界面自身尽量退后。
+   小程序端字体需在 app.tsx 中通过 Taro.loadFontFace 加载：
+     Source Han Serif CN（标题宋）、AlibabaPuHuiTi（正文）
+   ============================================================ */
+
+@font-face {
+  font-family: 'Source Han Serif CN';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/SourceHanSerifCN-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AlibabaPuHuiTi';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/AlibabaPuHuiTi_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 深海军蓝 / 纯白 / 温暖米白 / 暖金 / 中灰 —— 克制五色 */
+    --background: 40 20% 97%;
+    --foreground: 240 28% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 28% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 28% 14%;
+    --primary: 0 0% 10%; /* 近黑 CTA 配白字 16.8:1 */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 40 16% 93%;
+    --secondary-foreground: 240 28% 14%;
+    --muted: 40 16% 94%;
+    --muted-foreground: 240 5% 43%; /* 中灰辅助文字，压到米白底达 AA 4.8:1 */
+    --accent: 38 48% 37%; /* 承字暖金：明度压到白字达 AA 5.0:1 */
+    --accent-foreground: 0 0% 100%;
+    --gold: 39 46% 61%; /* 装饰暖金：细线、徽饰、边框，不承载正文 */
+    --navy: 240 28% 14%;
+    --destructive: 0 65% 44%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 40 14% 87%;
+    --input: 40 14% 87%;
+    --ring: 38 48% 37%;
+    --radius: 0.875rem;
+    --chart-1: 240 28% 24%;
+    --chart-2: 38 48% 45%;
+    --chart-3: 39 46% 61%;
+    --chart-4: 240 8% 62%;
+    --chart-5: 200 14% 44%;
+    --gradient-scrim: linear-gradient(180deg, hsl(240 28% 14% / 0) 0%, hsl(240 28% 14% / 0.62) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(39 52% 68%), hsl(36 40% 48%));
+    --shadow-quiet: 0 2px 10px -4px hsl(240 28% 14% / 0.12);
+    --shadow-lift: 0 12px 28px -14px hsl(240 28% 14% / 0.24);
+    --sidebar-background: 40 22% 96%;
+    --sidebar-foreground: 240 20% 24%;
+    --sidebar-primary: 0 0% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 40 16% 92%;
+    --sidebar-accent-foreground: 240 28% 14%;
+    --sidebar-border: 40 14% 86%;
+    --sidebar-ring: 38 48% 37%;
+  }
+
+  /* 暗色：夜幕行馆 —— 表面翻成深海军蓝（沿用本模板 navy 色相，不用中性灰蓝），
+     CTA 由近黑翻为暖白底深蓝字，暖金提亮成夜色里唯一的强调光 */
+  .dark {
+    --background: 240 24% 8%;
+    --foreground: 40 20% 95%;
+    --card: 240 22% 12%;
+    --card-foreground: 40 20% 95%;
+    --popover: 240 22% 12%;
+    --popover-foreground: 40 20% 95%;
+    --primary: 40 20% 95%;
+    --primary-foreground: 240 26% 12%;
+    --secondary: 240 18% 16%;
+    --secondary-foreground: 40 20% 95%;
+    --muted: 240 16% 15%;
+    --muted-foreground: 240 8% 70%;
+    --accent: 39 52% 58%; /* 夜色暖金配深蓝字 8.0:1 */
+    --accent-foreground: 240 30% 10%;
+    --gold: 39 52% 66%;
+    --navy: 240 24% 8%;
+    --destructive: 0 62% 46%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 12% 26%;
+    --input: 240 12% 26%;
+    --ring: 39 52% 58%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'AlibabaPuHuiTi', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：暖金发丝线 —— 极细一根金线，两端渐隐，做克制的奢华分隔 */
+  .gold-hairline {
+    height: 1px;
+    background-image: linear-gradient(90deg, transparent, hsl(var(--gold)) 50%, transparent);
+  }
+
+  /* 暖金细描边：徽章与评分块的唯一装饰 */
+  .gold-frame {
+    border: 1px solid hsl(var(--gold) / 0.7);
+    border-radius: var(--radius);
+  }
+
+  /* 私享信息卡：半透明白 + 极细白边 + 柔和外阴影模拟通透感（不用模糊滤镜） */
+  .quiet-glass {
+    background-color: hsl(var(--card) / 0.82);
+    border: 1px solid hsl(0 0% 100% / 0.36);
+    border-radius: var(--radius);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.4), var(--shadow-lift);
+  }
+
+  /* 摄影压幕：图片下缘暗渐层，让叠加文字始终可读 */
+  .photo-scrim {
+    background-image: var(--gradient-scrim);
+  }
+
+  /* 标题宋体：建筑杂志式的大而克制标题 */
+  .font-display {
+    font-family: 'Source Han Serif CN', 'Songti SC', 'STSong', serif;
+    letter-spacing: 0.01em;
+  }
+
+  /* 胶囊按钮几何：圆角到底的克制形态 */
+  .pill {
+    border-radius: 9999px;
+  }
+
+  .bg-gradient-gold {
+    background-image: var(--gradient-gold);
+  }
+  .bg-gradient-scrim {
+    background-image: var(--gradient-scrim);
+  }
+  .shadow-quiet {
+    box-shadow: var(--shadow-quiet);
+  }
+  .shadow-lift {
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* 触摸轻微上浮，阴影加深，安静克制 */
+  .press-quiet {
+    transition: transform 0.28s ease, box-shadow 0.28s ease;
+  }
+  .press-quiet:active {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* 内容淡入并轻微上移，无弹跳无旋转 */
+  .fade-in-quiet {
+    animation: fade-in-quiet 0.6s ease-out both;
+  }
+}
+
+@keyframes fade-in-quiet {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in-quiet {
+    animation: none;
+    opacity: 1;
+  }
+  .press-quiet {
+    transition: none;
+  }
+}

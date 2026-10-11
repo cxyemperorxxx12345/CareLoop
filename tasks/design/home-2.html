@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!-- miaoda-super-design | title: 便当暖盒 | skeleton: bento-grid | sig: L0-L3升级链做成同心弧步进器，弧半径递增即升级层级，点击步进留痕 -->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>愈见 CareLoop · 出院患者全周期照护助手</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        container: { center: true, padding: '2rem', screens: { '2xl': '1400px' } },
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+            secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+            accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+            popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+            card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' }
+          },
+          borderRadius: {
+            lg: 'var(--radius)',
+            md: 'calc(var(--radius) - 2px)',
+            sm: 'calc(var(--radius) - 4px)'
+          },
+          keyframes: {
+            /* ===== KEYFRAMES:BEGIN ===== */
+            'cell-pop': { '0%': { opacity: '0' }, '60%': { opacity: '1', transform: 'scale(1.02)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
+            'tile-drift': { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            /* ===== KEYFRAMES:END ===== */
+          },
+          animation: {
+            /* ===== ANIMATIONS:BEGIN ===== */
+            'cell-pop': 'cell-pop 0.6s cubic-bezier(.34,1.4,.64,1) forwards',
+            'tile-drift': 'tile-drift 0.7s ease forwards',
+            /* ===== ANIMATIONS:END ===== */
+          }
+        }
+      },
+      plugins: [
+        function ({ addVariant }) {
+          addVariant('intersect', '&:not([no-intersect])');
+        }
+      ]
+    };
+  </script>
+  <style>
+    /* ===== FONT-FACE:BEGIN ===== */
+    @font-face {
+      font-family: "ResourceHanRoundedCN";
+      src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Regular.ttf") format("truetype");
+      font-weight: 400;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "ResourceHanRoundedCN";
+      src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Medium.ttf") format("truetype");
+      font-weight: 500;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "ResourceHanRoundedCN";
+      src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Heavy.ttf") format("truetype");
+      font-weight: 900;
+      font-display: swap;
+    }
+    :root {
+      --font-body: "ResourceHanRoundedCN", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-synthesis: none;
+      line-break: strict;
+      overflow-wrap: break-word;
+    }
+    body { font-family: var(--font-body); }
+    h1, h2, h3 { text-wrap: balance; }
+    p { text-wrap: pretty; }
+    /* ===== FONT-FACE:END ===== */
+
+    /* ===== DESIGN-TOKENS:BEGIN ===== */
+    :root {
+      --radius: 1.25rem;
+      --background: 15 75% 97%;
+      --foreground: 342 21% 22%;
+      --card: 20 60% 99%;
+      --card-foreground: 342 21% 22%;
+      --primary: 344 56% 66%;
+      --primary-foreground: 342 30% 12%;
+      --secondary: 347 40% 93%;
+      --secondary-foreground: 342 30% 30%;
+      --muted: 20 50% 94%;
+      --muted-foreground: 342 12% 40%;
+      --accent: 347 65% 83%;
+      --accent-foreground: 342 21% 22%;
+      --destructive: 350 70% 46%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 15 45% 90%;
+      --input: 15 45% 90%;
+      --ring: 344 56% 66%;
+      --popover: 20 60% 99%;
+      --popover-foreground: 342 21% 22%;
+    }
+    /* ===== DESIGN-TOKENS:END ===== */
+
+    /* ===== CUSTOM-TOKENS:BEGIN ===== */
+    :root {
+      --sig-rose: #D97A93;
+      --sig-rose-soft: #F0B7C3;
+      --sig-cream: #FDF4F1;
+      --sig-ink: #432C33;
+      --sig-paper: #FFF9F5;
+      --sig-shadow: #EBCDD1;
+      --triage-green: #2E7D5B;
+      --triage-green-bg: #E8F3EC;
+      --triage-amber: #9A6510;
+      --triage-amber-bg: #F9EDD4;
+      --triage-red: #B4233D;
+      --triage-red-bg: #FBE7EB;
+    }
+    /* ===== CUSTOM-TOKENS:END ===== */
+
+    /* ===== SIGNATURE-CSS:BEGIN ===== */
+    .sig-tile { background: var(--sig-paper); border: 1px solid hsl(var(--border)); border-radius: 1.5rem; }
+    .sig-raise { box-shadow: 12px 10px 0 var(--sig-shadow); }
+    .sig-eyebrow {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-size: 12px; letter-spacing: 0.18em; font-weight: 500;
+      color: hsl(var(--muted-foreground));
+    }
+    .sig-pill-tag {
+      display: inline-block; background: #FFFFFF; border: 1px solid hsl(var(--border));
+      border-radius: 999px; padding: 0.1em 0.55em; margin: 0 0.12em;
+      font-size: 0.62em; vertical-align: 0.12em; font-weight: 500;
+    }
+    .sig-pill-tag-primary { background: var(--sig-rose-soft); border-color: transparent; }
+    .sig-arc { fill: none; stroke: #EFCBCE; stroke-width: 10; stroke-linecap: round; transition: stroke 0.35s, stroke-width 0.35s; }
+    .sig-arc-hub[data-active="0"] .sig-arc-0 { stroke: var(--sig-rose); stroke-width: 15; }
+    .sig-arc-hub[data-active="1"] .sig-arc-1 { stroke: var(--sig-rose); stroke-width: 15; }
+    .sig-arc-hub[data-active="2"] .sig-arc-2 { stroke: var(--sig-rose); stroke-width: 15; }
+    .sig-arc-hub[data-active="3"] .sig-arc-3 { stroke: var(--triage-red); stroke-width: 15; }
+    .sig-step-panel { display: none; }
+    .sig-arc-hub[data-active="0"] .sig-step-panel-0 { display: block; }
+    .sig-arc-hub[data-active="1"] .sig-step-panel-1 { display: block; }
+    .sig-arc-hub[data-active="2"] .sig-step-panel-2 { display: block; }
+    .sig-arc-hub[data-active="3"] .sig-step-panel-3 { display: block; }
+    .sig-step-btn[aria-pressed="true"] { background: var(--sig-rose); color: var(--sig-cream); border-color: transparent; }
+    .sig-num { font-variant-numeric: tabular-nums; }
+    /* ===== SIGNATURE-CSS:END ===== */
+  </style>
+</head>
+<body class="bg-background text-foreground antialiased">
+
+  <header class="sticky top-0 z-50 bg-background/85 backdrop-blur border-b border-border">
+    <div class="container flex items-center gap-5 py-3.5">
+      <a href="#hero" class="flex items-center gap-2.5 shrink-0">
+        <span class="w-9 h-9 rounded-full bg-primary text-primary-foreground font-black grid place-items-center text-lg">愈</span>
+        <span class="font-black text-lg tracking-wide">愈见 CareLoop</span>
+      </a>
+      <div class="hidden md:flex items-center gap-7 text-sm ml-4 text-muted-foreground font-medium">
+        <a href="#features" class="hover:text-foreground transition-colors">核心功能</a>
+        <a href="#escalation" class="hover:text-foreground transition-colors">升级链路</a>
+        <a href="#roles" class="hover:text-foreground transition-colors">两端协同</a>
+      </div>
+      <a href="#cta" class="ml-auto shrink-0 rounded-full bg-primary text-primary-foreground text-sm font-medium px-5 py-2.5 hover:brightness-95 transition-all">开始使用</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="hero" class="py-8 md:py-12">
+      <div class="container">
+        <div class="grid md:grid-cols-4 md:auto-rows-[8.8rem] gap-4 md:gap-5">
+          <div class="sig-tile md:col-span-2 md:row-span-2 p-7 md:p-9 flex flex-col opacity-0 animate-cell-pop">
+            <p class="sig-eyebrow">出院患者全周期照护助手</p>
+            <h1 class="mt-4 font-black text-[clamp(1.9rem,4.2vw,3.4rem)] leading-[1.28]">
+              把<span class="sig-pill-tag">出院小结</span>变成<br />会提醒、会分诊、<em class="not-italic text-primary">会报警</em>的照护系统
+            </h1>
+            <p class="mt-5 text-[15px] leading-[1.85] text-muted-foreground">慢病与术后康复人群出院后 4～12 周，「愈见」全程惦记：AI 解析医嘱、生成计划、按时提醒，漏服自动升级，异常直达医护。</p>
+            <div class="mt-auto pt-6 flex flex-wrap gap-3">
+              <a href="#cta" class="rounded-full bg-primary text-primary-foreground font-medium px-6 py-3 text-[15px] hover:brightness-95 transition-all">上传出院小结</a>
+              <a href="#roles" class="rounded-full border border-border font-medium px-6 py-3 text-[15px] hover:border-primary/50 transition-colors">看看两端</a>
+            </div>
+          </div>
+          <div class="md:col-span-2 md:row-span-2 rounded-3xl overflow-hidden bg-secondary aspect-[4/3] md:aspect-auto opacity-0 animate-cell-pop [animation-delay:0.08s]">
+            <img src="/workspace/app-ezvlp6ds1hqa/tasks/design/assets/937918171758620752_0.jpg" alt="晨光中轻握的双手，温暖的照护氛围" class="w-full h-full object-cover" />
+          </div>
+          <div class="sig-tile p-6 flex flex-col justify-between opacity-0 animate-cell-pop [animation-delay:0.16s]">
+            <p class="text-xs text-muted-foreground tracking-widest">覆盖窗口期</p>
+            <div>
+              <p class="font-black text-4xl leading-none sig-num">4-12<span class="text-base font-medium"> 周</span></p>
+              <p class="mt-2 text-xs text-muted-foreground">出院后延续护理关键期</p>
+            </div>
+          </div>
+          <div class="sig-tile p-6 flex flex-col justify-between opacity-0 animate-cell-pop [animation-delay:0.22s]">
+            <p class="text-xs text-muted-foreground tracking-widest">命中赛题方向</p>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="text-xs font-medium rounded-full bg-secondary px-3 py-1">诊后回访</span>
+              <span class="text-xs font-medium rounded-full bg-secondary px-3 py-1">用药提醒</span>
+              <span class="text-xs font-medium rounded-full bg-secondary px-3 py-1">患者问答</span>
+              <span class="text-xs font-medium rounded-full bg-secondary px-3 py-1">文档处理</span>
+            </div>
+          </div>
+        </div>
+        <p class="mt-5 text-xs text-muted-foreground">* 本内容不构成医疗诊断，请遵医嘱</p>
+      </div>
+    </section>
+
+    <section id="features" class="py-14 md:py-20">
+      <div class="container">
+        <div class="max-w-2xl opacity-0 intersect:animate-tile-drift">
+          <p class="sig-eyebrow">六大核心功能</p>
+          <h2 class="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">Must 清单，<span class="text-primary">逐格做扎实</span></h2>
+        </div>
+        <div class="mt-10 grid md:grid-cols-3 gap-4 md:gap-5">
+          <div class="sig-tile md:col-span-2 p-7 opacity-0 intersect:animate-cell-pop">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-01</p>
+            <h3 class="mt-2 font-black text-xl">文档解析</h3>
+            <p class="mt-3 text-[15px] leading-[1.85] text-muted-foreground">出院小结多模态解析，结构化抽取四要素，患者校对确认后生效。</p>
+            <div class="mt-5 flex flex-wrap items-center gap-2 text-[13px] font-medium">
+              <span class="rounded-full bg-secondary px-3.5 py-1.5">拍照上传</span>
+              <span class="text-muted-foreground">→</span>
+              <span class="rounded-full bg-secondary px-3.5 py-1.5">AI 提取</span>
+              <span class="text-muted-foreground">→</span>
+              <span class="rounded-full bg-secondary px-3.5 py-1.5">校对确认</span>
+              <span class="text-muted-foreground">→</span>
+              <span class="rounded-full bg-primary text-primary-foreground px-3.5 py-1.5">生成计划</span>
+            </div>
+          </div>
+          <div class="sig-tile p-7 opacity-0 intersect:animate-cell-pop [animation-delay:0.08s]">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-02</p>
+            <h3 class="mt-2 font-black text-xl">用药打卡</h3>
+            <p class="mt-3 text-[15px] leading-[1.85] text-muted-foreground">时间槽分组打卡，依从率自动统计。</p>
+            <div class="mt-4 flex flex-wrap gap-2 sig-num">
+              <span class="text-xs font-medium rounded-full bg-secondary px-3 py-1.5">08:00</span>
+              <span class="text-xs font-medium rounded-full bg-secondary px-3 py-1.5">12:00</span>
+              <span class="text-xs font-medium rounded-full bg-primary text-primary-foreground px-3 py-1.5">18:00</span>
+            </div>
+          </div>
+          <div class="sig-tile p-7 opacity-0 intersect:animate-cell-pop">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-03</p>
+            <h3 class="mt-2 font-black text-xl">智能问答</h3>
+            <div class="mt-4 space-y-2.5">
+              <p class="text-[13px] leading-[1.7] rounded-2xl rounded-bl-md bg-secondary px-4 py-2.5 w-fit max-w-[95%]">这个药饭前吃还是饭后吃？</p>
+              <p class="text-[13px] leading-[1.7] rounded-2xl rounded-br-md bg-primary/15 px-4 py-2.5 w-fit max-w-[95%]">餐后服用（依据：您的出院医嘱）</p>
+            </div>
+          </div>
+          <div class="sig-tile p-7 opacity-0 intersect:animate-cell-pop [animation-delay:0.08s]">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-04</p>
+            <h3 class="mt-2 font-black text-xl">症状分诊</h3>
+            <p class="mt-3 text-[15px] leading-[1.85] text-muted-foreground">红旗规则兜底 + 大模型综合分级。</p>
+            <div class="mt-4 flex gap-2">
+              <span class="text-xs font-medium rounded-full px-3 py-1.5" style="background: var(--triage-green-bg); color: var(--triage-green);">绿 居家观察</span>
+              <span class="text-xs font-medium rounded-full px-3 py-1.5" style="background: var(--triage-amber-bg); color: var(--triage-amber);">黄 联系随访</span>
+              <span class="text-xs font-medium rounded-full px-3 py-1.5" style="background: var(--triage-red-bg); color: var(--triage-red);">红 立即就医</span>
+            </div>
+          </div>
+          <div class="sig-tile p-7 opacity-0 intersect:animate-cell-pop [animation-delay:0.16s]">
+            <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-05</p>
+            <h3 class="mt-2 font-black text-xl flex items-center gap-2">预警中心
+              <span class="text-[12px] font-medium rounded-full px-2.5 py-0.5" style="background: var(--triage-red-bg); color: var(--triage-red);">2 待处理</span>
+            </h3>
+            <p class="mt-3 text-[15px] leading-[1.85] text-muted-foreground">红黄事件集中待办，人工录入处置结论方可闭环。</p>
+          </div>
+          <div class="sig-tile md:col-span-3 p-7 md:p-8 opacity-0 intersect:animate-cell-pop">
+            <div class="grid md:grid-cols-[10rem_1fr] gap-4 items-baseline">
+              <div>
+                <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">F-06</p>
+                <h3 class="mt-2 font-black text-xl">提醒升级</h3>
+              </div>
+              <p class="text-[15px] leading-[1.85] text-muted-foreground">站内提醒 30 分钟未确认，按级自动升级，全程幂等可重入；任意时刻打卡确认即终止。点击下方弧线体验升级链路。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="escalation" class="py-14 md:py-20 bg-secondary/60">
+      <div class="container">
+        <div class="max-w-2xl opacity-0 intersect:animate-tile-drift">
+          <p class="sig-eyebrow">自主决策 · 升级状态机</p>
+          <h2 class="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">没人确认，就<span class="text-primary">一直往上找人</span></h2>
+          <p class="mt-4 text-muted-foreground text-[15px] leading-[1.85]">弧线半径即升级层级：点击 L0-L3 步进，看看一次漏服会惊动谁。</p>
+        </div>
+        <div class="sig-arc-hub mt-10 grid md:grid-cols-2 gap-8 md:gap-12 items-center" data-active="0">
+          <div class="relative opacity-0 intersect:animate-cell-pop">
+            <svg viewBox="0 0 320 320" class="w-full max-w-[22rem] mx-auto block" role="img" aria-label="L0 到 L3 升级链同心弧示意图">
+              <path class="sig-arc sig-arc-0" d="M 160 120 A 40 40 0 0 1 200 160" />
+              <path class="sig-arc sig-arc-1" d="M 160 90 A 70 70 0 0 1 230 160" />
+              <path class="sig-arc sig-arc-2" d="M 160 60 A 100 100 0 0 1 260 160" />
+              <path class="sig-arc sig-arc-3" d="M 160 30 A 130 130 0 0 1 290 160" />
+            </svg>
+            <div class="mt-6 flex flex-wrap justify-center gap-2.5">
+              <button type="button" class="sig-step-btn text-sm font-medium rounded-full border border-border px-5 py-2.5 transition-colors" aria-pressed="true">L0 站内</button>
+              <button type="button" class="sig-step-btn text-sm font-medium rounded-full border border-border px-5 py-2.5 transition-colors" aria-pressed="false">L1 短信</button>
+              <button type="button" class="sig-step-btn text-sm font-medium rounded-full border border-border px-5 py-2.5 transition-colors" aria-pressed="false">L2 家属</button>
+              <button type="button" class="sig-step-btn text-sm font-medium rounded-full border border-border px-5 py-2.5 transition-colors" aria-pressed="false">L3 护士站</button>
+            </div>
+          </div>
+          <div class="sig-tile p-7 md:p-8 opacity-0 intersect:animate-cell-pop [animation-delay:0.1s] min-h-[16rem]">
+            <div class="sig-step-panel sig-step-panel-0">
+              <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">L0 · 站内提醒</p>
+              <h3 class="mt-3 font-black text-2xl">到点推送，等你打卡</h3>
+              <p class="mt-3 text-[15px] leading-[1.85] text-muted-foreground">18:00 用药提醒准时送达患者端，可打卡「已服用 / 稍后 / 跳过」。</p>
+            </div>
+            <div class="sig-step-panel sig-step-panel-1">
+              <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">L1 · 短信提醒</p>
+              <h3 class="mt-3 font-black text-2xl">30 分钟没确认，换通道再喊</h3>
+              <p class="mt-3 text-[15px] leading-[1.85] text-muted-foreground">系统自动发送短信到患者预留手机号，升级动作幂等留痕。</p>
+            </div>
+            <div class="sig-step-panel sig-step-panel-2">
+              <p class="text-xs tracking-[0.2em] text-muted-foreground font-medium">L2 · 家属提醒</p>
+              <h3 class="mt-3 font-black text-2xl">还是没回应，通知紧急联系人</h3>
+              <p class="mt-3 text-[15px] leading-[1.85] text-muted-foreground">同步推送家属，让身边人也知道该吃药了。无家属信息时自动跳级。</p>
+            </div>
+            <div class="sig-step-panel sig-step-panel-3">
+              <p class="text-xs tracking-[0.2em] font-medium" style="color: var(--triage-red);">L3 · 护士站预警</p>
+              <h3 class="mt-3 font-black text-2xl">医护端生成待办预警单</h3>
+              <p class="mt-3 text-[15px] leading-[1.85] text-muted-foreground">值班护士在预警中心看到这位患者的连续未确认记录，电话介入。任意时刻打卡确认，整条链路立即终止。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="roles" class="py-14 md:py-20">
+      <div class="container">
+        <div class="grid md:grid-cols-2 gap-4 md:gap-5">
+          <div class="rounded-3xl bg-secondary p-8 md:p-10 opacity-0 intersect:animate-cell-pop">
+            <p class="sig-eyebrow">患者端 · 移动优先</p>
+            <h3 class="mt-3 font-black text-2xl">看得懂、记得住、有人管</h3>
+            <div class="mt-6 space-y-3 text-[15px] leading-[1.8]">
+              <p class="flex gap-3"><span class="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2.5"></span>今日概览：出院天数、今日用药与待办</p>
+              <p class="flex gap-3"><span class="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2.5"></span>出院资料拍照上传，校对后生成计划</p>
+              <p class="flex gap-3"><span class="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2.5"></span>用药打卡、健康打卡与随访时间轴</p>
+              <p class="flex gap-3"><span class="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2.5"></span>智能问答随叫随到，症状自查三级分诊</p>
+            </div>
+          </div>
+          <div class="sig-tile p-8 md:p-10 opacity-0 intersect:animate-cell-pop [animation-delay:0.1s]">
+            <p class="sig-eyebrow">医护端 · Web 工作台</p>
+            <h3 class="mt-3 font-black text-2xl">一个看板管住一批患者</h3>
+            <div class="mt-6 space-y-3 text-[15px] leading-[1.8]">
+              <p class="flex gap-3"><span class="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2.5"></span>患者列表按风险红黄绿降序，异常自动上升</p>
+              <p class="flex gap-3"><span class="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2.5"></span>患者 360 视图：档案 / 用药 / 随访 / 体征 / 事件</p>
+              <p class="flex gap-3"><span class="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2.5"></span>预警中心闭环处理，动作与备注留痕</p>
+              <p class="flex gap-3"><span class="shrink-0 w-1.5 h-1.5 rounded-full bg-primary mt-2.5"></span>随访报告一键生成导出，知识库持续维护</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta" class="py-14 md:py-20">
+      <div class="container">
+        <div class="sig-tile sig-raise p-10 md:p-14 text-center opacity-0 intersect:animate-cell-pop">
+          <p class="sig-eyebrow justify-center">愈见 · CareLoop</p>
+          <h2 class="mt-4 font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.28]">上传出院小结<br />剩下的交给<span class="text-primary">愈见</span></h2>
+          <div class="mt-7 flex flex-wrap justify-center gap-3">
+            <a href="#" class="rounded-full bg-primary text-primary-foreground font-medium px-7 py-3 text-[15px] hover:brightness-95 transition-all">患者端 · 开始使用</a>
+            <a href="#" class="rounded-full border border-border font-medium px-7 py-3 text-[15px] hover:border-primary/50 transition-colors">医护端 · 登录工作台</a>
+          </div>
+          <p class="mt-5 text-xs text-muted-foreground">* 本内容不构成医疗诊断，请遵医嘱</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="py-8 border-t border-border">
+    <div class="container flex flex-wrap items-center justify-between gap-3">
+      <p class="text-xs text-muted-foreground">© 2026 愈见 CareLoop · iCAN AI 无代码智能体挑战赛 · 演示数据均为虚构脱敏</p>
+      <p class="text-xs text-muted-foreground">本内容不构成医疗诊断，请遵医嘱</p>
+    </div>
+  </footer>
+  </main>
+
+  <!-- P4 丢弃以下全部 data-preview-only 脚本 -->
+  <script src="https://code.bdstatic.com/npm/tailwindcss-intersect@2.2.0/dist/observer.min.js" data-preview-only></script>
+  <script type="module" data-preview-only>
+    import { animate, inView, scroll, stagger } from "https://cdn.jsdelivr.net/npm/motion@12.23.25/+esm";
+    Object.assign(window, { animate, inView, scroll, stagger });
+    document.dispatchEvent(new Event('motion:ready'));
+  </script>
+  <script data-preview-only>
+    /* motion 函数由上面的 module 异步挂到 window；解构必须在此回调内，顶层解构会拿到 undefined */
+    document.addEventListener('motion:ready', () => {
+      const { animate, inView, scroll, stagger } = window;
+      /* ===== MOTION-SCRIPT:BEGIN ===== */
+      const hub = document.querySelector('.sig-arc-hub');
+      const stepBtns = document.querySelectorAll('.sig-step-btn');
+      stepBtns.forEach((btn, i) => {
+        btn.addEventListener('click', () => {
+          hub.dataset.active = String(i);
+          stepBtns.forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
+        });
+      });
+      /* ===== MOTION-SCRIPT:END ===== */
+    });
+  </script>
+</body>
+</html>

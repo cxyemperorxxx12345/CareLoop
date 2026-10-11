@@ -1,0 +1,181 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 设计系统：De Stijl / Bauhaus —— 纯色三原色 + 粗黑格线
+   纸白基底 / 纯黑骨架 / 红黄蓝原色块，无渐变无柔影，直角边 */
+
+@font-face {
+  font-family: 'Source Han Mono SC';
+  src: url('https://resource-static.cdn.bcebos.com/fonts/SourceHanMonoSC-Regular.woff2') format('woff2');
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0rem;
+
+    /* 纸白基底 / 纯黑文字 */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+
+    /* 原色红为主色 */
+    --primary: 0 100% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    /* 原色蓝为次级 */
+    --secondary: 240 100% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* 中性灰静默区 */
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 30%;
+
+    /* 原色黄强调，配黑字保证对比 */
+    --accent: 51 99% 26.5%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 100% 38%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* 粗黑格线 */
+    --border: 0 0% 4%;
+    --input: 0 0% 4%;
+    --ring: 240 100% 40%;
+
+    --chart-1: 0 100% 45%;
+    --chart-2: 240 100% 40%;
+    --chart-3: 51 99% 51%;
+    --chart-4: 0 0% 4%;
+    --chart-5: 0 0% 55%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 4%;
+    --sidebar-primary: 0 100% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 51 99% 51%;
+    --sidebar-accent-foreground: 0 0% 4%;
+    --sidebar-border: 0 0% 4%;
+    --sidebar-ring: 240 100% 40%;
+
+    --grid-line: 3px;
+  }
+
+  .dark {
+    --radius: 0rem;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 97%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 97%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 97%;
+    --primary: 0 100% 46%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 100% 62%;
+    --secondary-foreground: 240 20% 96%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 72%;
+    --accent: 51 99% 26.5%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 90% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 97%;
+    --input: 0 0% 97%;
+    --ring: 51 99% 58%;
+    --chart-4: 0 0% 21%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply bg-background;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Source Han Mono SC', 'PingFang SC', ui-monospace, monospace;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Source Han Mono SC', ui-monospace, monospace;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+  }
+
+  ::selection {
+    background: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+}
+
+@layer components {
+  /* 核心视觉签名：粗黑骨架格线 —— 格线即构图，不只是分隔 */
+  .sig-grid-frame {
+    border: var(--grid-line) solid hsl(var(--border));
+    background-color: hsl(var(--card));
+  }
+
+  /* 格线分栏：内部元素之间以同粗黑线切分 */
+  .destijl-split > * + * {
+    border-top: var(--grid-line) solid hsl(var(--border));
+  }
+  .destijl-split-x > * + * {
+    border-left: var(--grid-line) solid hsl(var(--border));
+  }
+
+  /* 纯色块：高饱和、无渐变、无阴影，可延伸至屏幕边缘 */
+  .destijl-block-primary {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+  .destijl-block-secondary {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+  }
+  .destijl-block-accent {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+
+  /* 触感换色：hover 瞬时反转色块，像翻动实体拼板，无过渡 */
+  .destijl-flip {
+    transition: none;
+  }
+  .destijl-flip:hover {
+    background-color: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+
+  /* 矩形遮罩推入：线性、瞬断节奏，不用淡入 */
+  .destijl-wipe {
+    animation: destijl-wipe 260ms linear both;
+  }
+
+  @keyframes destijl-wipe {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+
+  /* 字为图形：超大字号紧排，作为几何构成的一部分 */
+  .destijl-supertype {
+    font-weight: 700;
+    line-height: 0.85;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .destijl-wipe { animation: none; clip-path: none; }
+  }
+}

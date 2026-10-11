@@ -1,0 +1,192 @@
+[
+  {
+    "voice_id": "male-qn-qingse",
+    "name": "青涩青年音色",
+    "language": "中文 (普通话)"
+  },
+  {
+    "voice_id": "male-qn-jingying",
+    "name": "精英青年音色",
+    "language": "中文 (普通话)"
+  },
+  {
+    "voice_id": "male-qn-badao",
+    "name": "霸道青年音色",
+    "language": "中文 (普通话)"
+  },
+  {
+    "voice_id": "male-qn-daxuesheng",
+    "name": "青年大学生音色",
+    "language": "中文 (普通话)"
+  },
+  {
+    "voice_id": "female-shaonv",
+    "name": "少女音色",
+    "language": "中文 (普通话)"
+  },
+  {
+    "voice_id": "female-yujie",
+    "name": "御姐音色",
+    "language": "中文 (普通话)"
+  },
+  {
+    "voice_id": "female-chengshu",
+    "name": "成熟女性音色",
+    "language": "中文 (普通话)"
+  },
+  {
+    "voice_id": "female-tianmei",
+    "name": "甜美女性音色",
+    "language": "中文 (普通话)"
+  },
+  {
+    "voice_id": "Cantonese_GentleLady",
+    "name": "温柔女声",
+    "language": "中文 (粤语)"
+  },
+  {
+    "voice_id": "Charming_Lady",
+    "name": "Charming Lady",
+    "language": "英文"
+  },
+  {
+    "voice_id": "Sweet_Girl",
+    "name": "Sweet Girl",
+    "language": "英文"
+  },
+  {
+    "voice_id": "Serene_Woman",
+    "name": "Serene Woman",
+    "language": "英文"
+  },
+  {
+    "voice_id": "English_Trustworthy_Man",
+    "name": "Trustworthy Man",
+    "language": "英文"
+  },
+  {
+    "voice_id": "English_Graceful_Lady",
+    "name": "Graceful Lady",
+    "language": "英文"
+  },
+  {
+    "voice_id": "English_Aussie_Bloke",
+    "name": "Aussie Bloke",
+    "language": "英文"
+  },
+  {
+    "voice_id": "English_Diligent_Man",
+    "name": "Diligent Man",
+    "language": "英文"
+  },
+  {
+    "voice_id": "English_Gentle-voiced_man",
+    "name": "Gentle-voiced man",
+    "language": "英文"
+  },
+  {
+    "voice_id": "Japanese_IntellectualSenior",
+    "name": "Intellectual Senior",
+    "language": "日文"
+  },
+  {
+    "voice_id": "Korean_SweetGirl",
+    "name": "Sweet Girl",
+    "language": "韩文"
+  },
+  {
+    "voice_id": "Spanish_SereneWoman",
+    "name": "Serene Woman",
+    "language": "西班牙文"
+  },
+  {
+    "voice_id": "Portuguese_SentimentalLady",
+    "name": "Sentimental Lady",
+    "language": "葡萄牙文"
+  },
+  {
+    "voice_id": "French_Male_Speech_New",
+    "name": "Level-Headed Man",
+    "language": "法文"
+  },
+  {
+    "voice_id": "Indonesian_SweetGirl",
+    "name": "Sweet Girl",
+    "language": "印尼文"
+  },
+  {
+    "voice_id": "German_FriendlyMan",
+    "name": "Friendly Man",
+    "language": "德文"
+  },
+  {
+    "voice_id": "Russian_HandsomeChildhoodFriend",
+    "name": "Handsome Childhood Friend",
+    "language": "俄文"
+  },
+  {
+    "voice_id": "Italian_BraveHeroine",
+    "name": "Brave Heroine",
+    "language": "意大利文"
+  },
+  {
+    "voice_id": "Arabic_CalmWoman",
+    "name": "Calm Woman",
+    "language": "阿拉伯文"
+  },
+  {
+    "voice_id": "Turkish_CalmWoman",
+    "name": "Calm Woman",
+    "language": "土耳其文"
+  },
+  {
+    "voice_id": "Ukrainian_CalmWoman",
+    "name": "Calm Woman",
+    "language": "乌克兰文"
+  },
+  {
+    "voice_id": "Dutch_kindhearted_girl",
+    "name": "Kind-hearted girl",
+    "language": "荷兰文"
+  },
+  {
+    "voice_id": "Vietnamese_kindhearted_girl",
+    "name": "Kind-hearted girl",
+    "language": "越南文"
+  },
+  {
+    "voice_id": "Thai_male_1_sample8",
+    "name": "Serene Man",
+    "language": "泰文"
+  },
+  {
+    "voice_id": "Polish_male_1_sample4",
+    "name": "Male Narrator",
+    "language": "波兰文"
+  },
+  {
+    "voice_id": "Romanian_male_1_sample2",
+    "name": "Reliable Man",
+    "language": "罗马尼亚文"
+  },
+  {
+    "voice_id": "greek_male_1a_v1",
+    "name": "Thoughtful Mentor",
+    "language": "希腊文"
+  },
+  {
+    "voice_id": "czech_male_1_v1",
+    "name": "Assured Presenter",
+    "language": "捷克文"
+  },
+  {
+    "voice_id": "finnish_male_3_v1",
+    "name": "Upbeat Man",
+    "language": "芬兰文"
+  },
+  {
+    "voice_id": "hindi_male_1_v2",
+    "name": "Trustworthy Advisor",
+    "language": "印地文"
+  }
+]

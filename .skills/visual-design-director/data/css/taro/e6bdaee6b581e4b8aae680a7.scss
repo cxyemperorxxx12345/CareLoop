@@ -1,0 +1,204 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* ============================================================
+   潮流个性 · 撞色 + 粗黑描边 + 无模糊实心投影的贴纸拼贴
+   小程序端需在 app.tsx 中通过 Taro.loadFontFace 加载标题字体：
+   Taro.loadFontFace({ global: true, family: 'DouyinSansBold',
+     source: 'url("https://resource-static.cdn.bcebos.com/fonts/DouyinSansBold.ttf")' })
+   ============================================================ */
+
+@font-face {
+  font-family: 'DouyinSansBold';
+  src: url('https://resource-static.cdn.bcebos.com/fonts/DouyinSansBold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --background: 45 50% 96%; /* 暖米画板底，衬托撞色贴纸 */
+    --foreground: 0 0% 8%; /* 近黑，同时充当描边与硬阴影色 */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+    --primary: 113 100% 72%; /* 酸性荧光绿，配黑字 */
+    --primary-foreground: 0 0% 8%;
+    --secondary: 331 93% 42%; /* 撞色玫粉，压足明度配白字 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 45 25% 90%;
+    --muted-foreground: 0 0% 32%;
+    --accent: 331 93% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 44%;
+    --destructive-foreground: 0 0% 100%;
+    --highlight: 51 100% 60%; /* 高亮荧光黄，用于标注与马克笔感色块 */
+    --highlight-foreground: 0 0% 8%;
+    --border: 0 0% 8%; /* 描边即黑线，2rpx~8rpx */
+    --input: 0 0% 8%;
+    --ring: 113 100% 72%;
+    --radius: 0.25rem; /* 硬朗边缘，几乎不倒角 */
+
+    --chart-1: 113 100% 55%;
+    --chart-2: 331 93% 50%;
+    --chart-3: 51 100% 55%;
+    --chart-4: 199 100% 45%;
+    --chart-5: 268 90% 55%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 8%;
+    --sidebar-primary: 113 100% 72%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 45 25% 90%;
+    --sidebar-accent-foreground: 0 0% 8%;
+    --sidebar-border: 0 0% 8%;
+    --sidebar-ring: 331 93% 42%;
+  }
+
+  /* 暗色翻转：画板变涂黑墙面，描边反白，撞色照旧刺眼 */
+  .dark {
+    --background: 0 20% 5%;
+    --foreground: 45 50% 96%;
+    --card: 0 15% 11%;
+    --card-foreground: 45 50% 96%;
+    --popover: 0 15% 11%;
+    --popover-foreground: 45 50% 96%;
+    --primary: 113 100% 72%;
+    --primary-foreground: 0 20% 5%;
+    --secondary: 331 93% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 12% 18%;
+    --muted-foreground: 40 15% 70%;
+    --accent: 331 93% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --highlight: 51 100% 62%;
+    --highlight-foreground: 0 20% 5%;
+    --border: 45 50% 96%;
+    --input: 45 50% 96%;
+    --ring: 113 100% 72%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：纯色无模糊硬阴影，向右下偏移，制造贴纸触觉深度 */
+  .shadow-brutal-sm {
+    box-shadow: 4rpx 4rpx 0 0 hsl(var(--foreground));
+  }
+  .shadow-brutal {
+    box-shadow: 8rpx 8rpx 0 0 hsl(var(--foreground));
+  }
+  .shadow-brutal-lg {
+    box-shadow: 12rpx 12rpx 0 0 hsl(var(--foreground));
+  }
+  .shadow-brutal-primary {
+    box-shadow: 10rpx 10rpx 0 0 hsl(var(--primary));
+  }
+
+  /* 粗黑描边：分隔区域的硬朗骨架 */
+  .stroke-heavy {
+    border: 6rpx solid hsl(var(--foreground));
+  }
+  .stroke-mid {
+    border: 4rpx solid hsl(var(--foreground));
+  }
+
+  /* 巨型标题：直陈价值主张，字号越大越对 */
+  .font-display {
+    font-family: 'DouyinSansBold', -apple-system, 'PingFang SC', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* 荧光马克笔高亮条 */
+  .marker-highlight {
+    background-color: hsl(var(--highlight));
+    color: hsl(var(--highlight-foreground));
+  }
+
+  /* 斜向撞色条纹，锐线符号感的背景纹理 */
+  .stripe-diagonal {
+    background-image: repeating-linear-gradient(
+      45deg,
+      hsl(var(--foreground)) 0 8rpx,
+      transparent 8rpx 24rpx
+    );
+  }
+
+  /* 贴纸随机偏转，形成玩味失序的秩序 */
+  .tilt-left {
+    transform: rotate(-3deg);
+  }
+  .tilt-right {
+    transform: rotate(3deg);
+  }
+}
+
+/* 跑马灯 / 弹性入场 / 按钮下压 */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    transform: scale(0.7) rotate(-6deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.06) rotate(1deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+@layer utilities {
+  .animate-marquee {
+    animation: marquee 12s linear infinite;
+  }
+  .animate-pop-in {
+    animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .animate-wobble {
+    animation: wobble 2.4s ease-in-out infinite;
+  }
+  /* 点击明显下压，阴影同步收缩 */
+  .pressable:active {
+    transform: translate(6rpx, 6rpx);
+    box-shadow: 2rpx 2rpx 0 0 hsl(var(--foreground));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-wobble,
+  .animate-pop-in {
+    animation: none;
+  }
+}

@@ -1,0 +1,223 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 设计系统：8-bit 像素 —— NES 调色板取色：金币黄 / 电子蓝 / 银灰 / 近黑
+   零圆角、粗描边、硬边投影、斜切立体边，动效走 steps() 逐帧 */
+
+@font-face {
+  font-family: 'HanChanDianZhengTi_16px';
+  src: url('https://resource-static.cdn.bcebos.com/fonts/ChillBitmap_16px.woff2') format('woff2');
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0rem;
+
+    /* 银灰机身底 / 近黑像素字 */
+    --background: 0 0% 88%;
+    --foreground: 0 0% 8%;
+
+    --card: 0 0% 96%;
+    --card-foreground: 0 0% 8%;
+    --popover: 0 0% 96%;
+    --popover-foreground: 0 0% 8%;
+
+    /* 金币黄主色（NES 亮黄） */
+    --primary: 45 98% 29%;
+    --primary-foreground: 0 0% 100%;
+
+    /* 电子蓝次级 */
+    --secondary: 240 100% 49%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 78%;
+    --muted-foreground: 0 0% 26%;
+
+    --accent: 240 100% 49%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 92% 42%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* 粗描边始终近黑 */
+    --border: 0 0% 8%;
+    --input: 0 0% 8%;
+    --ring: 240 100% 49%;
+
+    --chart-1: 45 98% 49%;
+    --chart-2: 240 100% 49%;
+    --chart-3: 130 70% 38%;
+    --chart-4: 0 92% 42%;
+    --chart-5: 0 0% 45%;
+
+    --sidebar-background: 0 0% 82%;
+    --sidebar-foreground: 0 0% 8%;
+    --sidebar-primary: 45 98% 49%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 240 100% 49%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 8%;
+    --sidebar-ring: 240 100% 49%;
+
+    /* 非颜色角色变量：硬边像素投影 */
+    --shadow-pixel: 4px 4px 0 0 hsl(0 0% 8%);
+    --shadow-pixel-lg: 6px 6px 0 0 hsl(0 0% 8%);
+  }
+
+  .dark {
+    --radius: 0rem;
+    /* 反转为 CRT 夜屏：深蓝黑底，亮黄仍为主色 */
+    --background: 240 40% 10%;
+    --foreground: 0 0% 94%;
+    --card: 240 34% 15%;
+    --card-foreground: 0 0% 94%;
+    --popover: 240 34% 15%;
+    --popover-foreground: 0 0% 94%;
+    --primary: 45 98% 29%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 90% 62%;
+    --secondary-foreground: 240 20% 96%;
+    --muted: 240 24% 20%;
+    --muted-foreground: 0 0% 74%;
+    --accent: 190 90% 31%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 49%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 96%;
+    --input: 0 0% 96%;
+    --ring: 45 98% 55%;
+
+    --shadow-pixel: 4px 4px 0 0 hsl(0 0% 96%);
+    --shadow-pixel-lg: 6px 6px 0 0 hsl(0 0% 96%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  html {
+    @apply bg-background;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'HanChanDianZhengTi_16px', 'Courier New', monospace;
+    -webkit-font-smoothing: none;
+    font-smooth: never;
+    image-rendering: pixelated;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'HanChanDianZhengTi_16px', 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  ::selection {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+}
+
+@layer components {
+  /* 核心视觉签名：硬边像素投影 —— 无模糊的方块阴影 */
+  .pixel-shadow {
+    box-shadow: var(--shadow-pixel);
+  }
+  .pixel-shadow-lg {
+    box-shadow: var(--shadow-pixel-lg);
+  }
+
+  /* 粗描边像素容器 */
+  .pixel-border {
+    border: 3px solid hsl(var(--border));
+    border-radius: 0;
+  }
+
+  /* 斜切立体边：亮上暗下的 3D 按钮面 */
+  .pixel-bevel {
+    border: 3px solid hsl(var(--border));
+    box-shadow:
+      inset 3px 3px 0 0 hsl(0 0% 100% / 0.6),
+      inset -3px -3px 0 0 hsl(0 0% 0% / 0.35),
+      var(--shadow-pixel);
+  }
+
+  /* 手柄按压手感：Y 轴下沉并吃掉投影 */
+  .pixel-press {
+    transition: transform 60ms steps(2, end), box-shadow 60ms steps(2, end);
+  }
+  .pixel-press:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 0 hsl(var(--border));
+  }
+
+  /* 扫描线覆层：CRT 屏幕质感 */
+  .crt-scanlines {
+    position: relative;
+  }
+  .crt-scanlines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      hsl(0 0% 0% / 0.12) 0px,
+      hsl(0 0% 0% / 0.12) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+
+  /* 棋盘格像素底纹 */
+  .pixel-checker {
+    background-image:
+      linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25% 75%, hsl(var(--muted)) 75%),
+      linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25% 75%, hsl(var(--muted)) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
+  }
+
+  /* 方块闪烁光标 */
+  .pixel-caret {
+    display: inline-block;
+    width: 0.6em;
+    height: 1em;
+    background: hsl(var(--foreground));
+    vertical-align: text-bottom;
+    animation: pixel-blink 1s steps(1, end) infinite;
+  }
+
+  /* 逐帧弹跳（精灵待机） */
+  .pixel-bounce {
+    animation: pixel-bounce 0.6s steps(4, end) infinite alternate;
+  }
+
+  /* 闪烁文字（街机提示） */
+  .pixel-flicker {
+    animation: pixel-blink 0.9s steps(1, end) infinite;
+  }
+
+  @keyframes pixel-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+
+  @keyframes pixel-bounce {
+    from { transform: translateY(0); }
+    to { transform: translateY(-6px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pixel-caret, .pixel-bounce, .pixel-flicker { animation: none; }
+    .pixel-press { transition: none; }
+  }
+}

@@ -1,0 +1,178 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* 漫画书风格 · 粗黑描边 + CMYK 高饱和印刷色
+   材质逻辑：纸张白底 + 纯黑描边与文字，漫画红 / 英雄蓝 / 警示黄三色制造爆发力；
+   块面靠 2-4px 实线描边与无模糊硬偏移阴影成立，叠加半色调点阵与放射速度线模拟复古印刷。
+   小程序端字体需在 app.tsx 中通过 Taro.loadFontFace 加载：
+   Taro.loadFontFace({ family: 'PangMenTitle', global: true, source: 'url("https://resource-static.bj.bcebos.com/fonts-skill/PangMenTitle_Regular.ttf")' })
+   Taro.loadFontFace({ family: 'AlibabaPuHuiTi', global: true, source: 'url("https://resource-static.bj.bcebos.com/fonts-skill/AlibabaPuHuiTi_Regular.ttf")' }) */
+
+@font-face {
+  font-family: 'PangMenTitle';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/PangMenTitle_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'AlibabaPuHuiTi';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/AlibabaPuHuiTi_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 表面：微黄纸张白 + 纯黑油墨 */
+    --background: 55 100% 97%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    /* 漫画红：主色，压到白字达标 */
+    --primary: 0 74% 53%;
+    --primary-foreground: 0 0% 100%;
+    /* 警示黄：次色，永远配黑字 */
+    --secondary: 51 100% 50%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 48 30% 90%;
+    --muted-foreground: 0 0% 28%;
+    /* 英雄蓝：强调色，压到白字达标 */
+    --accent: 210 92% 46%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 74% 42%;
+    --destructive-foreground: 0 0% 100%;
+    /* 描边即造型：边框与油墨同为纯黑 */
+    --border: 0 0% 0%;
+    --input: 0 0% 0%;
+    --ring: 0 0% 0%;
+    --radius: 0.25rem;
+    --chart-1: 0 74% 53%;
+    --chart-2: 210 92% 46%;
+    --chart-3: 51 100% 50%;
+    --chart-4: 0 0% 0%;
+    --chart-5: 0 0% 45%;
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 55 100% 97%;
+    --sidebar-primary: 0 74% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 51 100% 50%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 55 100% 97%;
+    --sidebar-ring: 51 100% 50%;
+  }
+
+  /* 暗色：切到深灰印张，油墨反转为纸白，三色印刷色保持同色相不串味 */
+  .dark {
+    --background: 0 0% 17%;
+    --foreground: 48 60% 96%;
+    --card: 0 0% 21%;
+    --card-foreground: 48 60% 96%;
+    --popover: 0 0% 21%;
+    --popover-foreground: 48 60% 96%;
+    --primary: 0 74% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 51 100% 52%;
+    --secondary-foreground: 0 0% 8%;
+    --muted: 0 0% 26%;
+    --muted-foreground: 48 12% 76%;
+    --accent: 210 92% 46%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 74% 50%;
+    --destructive-foreground: 0 0% 100%;
+    /* 描边在深灰印张上反转为纸白，仍是造型主体 */
+    --border: 55 40% 92%;
+    --input: 55 40% 92%;
+    --ring: 51 100% 52%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'AlibabaPuHuiTi', 'PingFang SC', -apple-system, sans-serif;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：粗黑描边 + 无模糊硬偏移阴影，分格从纸面被顶起 */
+  .ink-panel {
+    border: 3px solid hsl(var(--border));
+    box-shadow: 6px 6px 0 0 hsl(var(--border));
+  }
+  .ink-panel-sm {
+    border: 2px solid hsl(var(--border));
+    box-shadow: 3px 3px 0 0 hsl(var(--border));
+  }
+  /* 半色调点阵：阴影与过渡区的复古印刷网点 */
+  .bg-halftone {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.14) 1.5px, transparent 1.6px);
+    background-size: 9px 9px;
+  }
+  /* 放射速度线：围绕重点信息强化运动感 */
+  .bg-speed-lines {
+    background-image: repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      hsl(var(--foreground) / 0.1) 0deg 2deg,
+      transparent 2deg 9deg
+    );
+  }
+  /* 描边文字：标题像印刷字被黑线勒出轮廓 */
+  .text-outline {
+    -webkit-text-stroke: 1.5px hsl(var(--foreground));
+    paint-order: stroke fill;
+  }
+  /* 对话气泡尾巴：硬边三角小尾，接在气泡左下角 */
+  .bubble-tail {
+    position: relative;
+  }
+  .bubble-tail::after {
+    content: '';
+    position: absolute;
+    left: 28rpx;
+    bottom: -20rpx;
+    width: 0;
+    height: 0;
+    border-left: 20rpx solid hsl(var(--border));
+    border-bottom: 20rpx solid transparent;
+  }
+  /* 标题字：庞门正道，粗重醒目 */
+  .font-title {
+    font-family: 'PangMenTitle', 'AlibabaPuHuiTi', -apple-system, sans-serif;
+    letter-spacing: 0.02em;
+  }
+  /* 分格被推近的镜头感：按下时缩小并吃掉硬阴影 */
+  .panel-press {
+    transition: transform 90ms ease-out, box-shadow 90ms ease-out;
+  }
+  .panel-press:active {
+    transform: translate(3px, 3px) scale(0.99);
+    box-shadow: 0 0 0 0 hsl(var(--border));
+  }
+  /* 快速飞入：动作场面突然展开 */
+  .burst-in {
+    animation: burst-in 220ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  }
+  /* 冲击脉冲：重点标签的循环放大 */
+  .impact-pulse {
+    animation: impact-pulse 900ms ease-in-out infinite;
+  }
+}
+
+@keyframes burst-in {
+  0% { opacity: 0; transform: scale(0.7) rotate(-6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-2deg); }
+}
+@keyframes impact-pulse {
+  0%, 100% { transform: scale(1) rotate(-3deg); }
+  50% { transform: scale(1.06) rotate(-3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .burst-in,
+  .impact-pulse {
+    animation: none;
+  }
+}

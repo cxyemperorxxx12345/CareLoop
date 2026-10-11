@@ -1,0 +1,211 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* 水墨意境 · 东方留白美学
+   宣纸白基底 / 焦墨主色 / 墨色层次做次级文字 / 朱红印章点缀 / 青绿山水极少量 / 描金仅作细节。
+   柔和墨边、大量留白，不用硬边阴影；墨晕靠半透明渐层叠加，不依赖模糊滤镜（小程序真机不支持）。
+   字体：小程序端需在 app.tsx 中通过 Taro.loadFontFace 加载（H5 端走下面 @font-face）。 */
+
+@font-face {
+  font-family: 'AlimamaDongFangDaKai';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/AlimamaDongFangDaKai-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Source Han Serif';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/SourceHanSerifCN-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 宣纸白与墨色层次 */
+    --background: 40 33% 96%;
+    --foreground: 24 12% 14%;
+    --card: 42 46% 98%;
+    --card-foreground: 24 12% 14%;
+    --popover: 42 46% 98%;
+    --popover-foreground: 24 12% 14%;
+    /* 焦墨作主色，用于标题与主按钮 */
+    --primary: 24 14% 16%;
+    --primary-foreground: 40 40% 97%;
+    /* 青绿山水色，克制点缀 */
+    --secondary: 146 32% 32%;
+    --secondary-foreground: 40 40% 97%;
+    --muted: 38 24% 90%;
+    --muted-foreground: 25 8% 40%;
+    /* 朱红印章色，仅作关键强调 */
+    --accent: 350 68% 45%;
+    --accent-foreground: 40 40% 97%;
+    --destructive: 0 60% 44%;
+    --destructive-foreground: 40 40% 97%;
+    --border: 34 18% 80%;
+    --input: 34 18% 80%;
+    --ring: 350 68% 45%;
+    --radius: 0.375rem;
+    /* 墨色层次：焦墨 / 浓墨 / 淡墨 / 清墨 */
+    --ink-900: 24 14% 12%;
+    --ink-700: 24 9% 24%;
+    --ink-500: 25 7% 42%;
+    --ink-300: 30 8% 64%;
+    /* 印章朱红与描金（描金仅作装饰细节，不承载正文） */
+    --seal: 350 70% 45%;
+    --gold: 44 58% 50%;
+    /* 渐变与柔影 */
+    --gradient-ink: linear-gradient(135deg, hsl(24 14% 16%), hsl(25 9% 32%));
+    --gradient-paper: linear-gradient(180deg, hsl(42 46% 98%), hsl(38 30% 92%));
+    --shadow-ink: 0 10px 34px -14px hsl(24 24% 18% / 0.3);
+    --shadow-soft: 0 4px 18px -10px hsl(24 20% 20% / 0.22);
+    --chart-1: 350 68% 45%;
+    --chart-2: 146 32% 32%;
+    --chart-3: 24 14% 16%;
+    --chart-4: 44 58% 50%;
+    --chart-5: 25 7% 42%;
+    --sidebar-background: 40 33% 96%;
+    --sidebar-foreground: 25 8% 40%;
+    --sidebar-primary: 24 14% 16%;
+    --sidebar-primary-foreground: 40 40% 97%;
+    --sidebar-accent: 38 24% 90%;
+    --sidebar-accent-foreground: 24 14% 16%;
+    --sidebar-border: 34 18% 80%;
+    --sidebar-ring: 350 68% 45%;
+  }
+
+  /* 暗色为「夜宣纸」：暖调深墨底、纸白反转为主色，沿用朱红与青绿色相，不用中性灰蓝 */
+  .dark {
+    --background: 28 8% 11%;
+    --foreground: 40 30% 92%;
+    --card: 28 8% 15%;
+    --card-foreground: 40 30% 92%;
+    --popover: 28 8% 15%;
+    --popover-foreground: 40 30% 92%;
+    --primary: 40 30% 88%;
+    --primary-foreground: 28 10% 10%;
+    --secondary: 146 36% 36%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 28 6% 20%;
+    --muted-foreground: 38 16% 66%;
+    --accent: 350 70% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 8% 26%;
+    --input: 30 8% 26%;
+    --ring: 350 70% 52%;
+    --ink-900: 40 30% 92%;
+    --ink-700: 38 20% 76%;
+    --ink-500: 38 16% 66%;
+    --ink-300: 32 10% 46%;
+    --seal: 350 70% 56%;
+    --gold: 46 60% 58%;
+    --gradient-ink: linear-gradient(135deg, hsl(40 30% 88%), hsl(38 16% 66%));
+    --gradient-paper: linear-gradient(180deg, hsl(28 8% 15%), hsl(28 10% 10%));
+    --shadow-ink: 0 10px 34px -14px hsl(0 0% 0% / 0.6);
+    --shadow-soft: 0 4px 18px -10px hsl(0 0% 0% / 0.5);
+    --chart-3: 24 14% 23%;
+  }
+}
+
+@layer base {
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Source Han Serif', 'Songti SC', 'STSong', 'SimSun', serif;
+    line-height: 1.9;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：宣纸噪点纹理 —— 双层错位圆点模拟纸浆颗粒 */
+  .paper-texture {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(hsl(30 22% 62% / 0.07) 1px, transparent 1px),
+      radial-gradient(hsl(30 22% 62% / 0.05) 1px, transparent 1px);
+    background-size: 22px 22px, 36px 36px;
+    background-position: 0 0, 11px 18px;
+  }
+  /* 墨晕：柔和径向晕散，替代模糊实现毛笔笔触边缘 */
+  .ink-wash {
+    background-image: radial-gradient(
+      circle at 50% 50%,
+      hsl(var(--ink-700) / 0.18) 0,
+      hsl(var(--ink-700) / 0.06) 45%,
+      transparent 72%
+    );
+  }
+  /* 干笔分割线：虚实相生，两端渐隐 */
+  .ink-divider {
+    height: 1px;
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--ink-500) / 0.55),
+      transparent
+    );
+  }
+  /* 朱红印章 */
+  .seal-stamp {
+    color: hsl(var(--seal));
+    border: 2px solid hsl(var(--seal));
+    letter-spacing: 0.15em;
+  }
+  /* 描金细节：仅用于高端装饰描边 */
+  .gold-hairline {
+    border: 1px solid hsl(var(--gold) / 0.7);
+  }
+  .bg-gradient-ink {
+    background-image: var(--gradient-ink);
+  }
+  .bg-gradient-paper {
+    background-image: var(--gradient-paper);
+  }
+  .shadow-ink {
+    box-shadow: var(--shadow-ink);
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  /* 书法标题 */
+  .font-kai {
+    font-family: 'AlimamaDongFangDaKai', 'STKaiti', 'KaiTi', serif;
+  }
+  /* 竖排装饰文字 */
+  .writing-vertical {
+    writing-mode: vertical-rl;
+  }
+
+  /* 淡入 + 轻微上浮：含蓄缓慢的出现节奏 */
+  .anim-ink-in {
+    animation: inkFadeUp 0.5s ease-out both;
+  }
+  @keyframes inkFadeUp {
+    0% { opacity: 0; transform: translateY(14px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  /* 墨晕扩散：触摸反馈 */
+  .anim-ink-spread {
+    animation: inkSpread 0.6s ease-out both;
+  }
+  @keyframes inkSpread {
+    0% { opacity: 0; transform: scale(0.7); }
+    60% { opacity: 0.9; }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  /* 云雾渐显：循环装饰，尊重减弱动效偏好 */
+  .anim-mist {
+    animation: mistDrift 6s ease-in-out infinite;
+  }
+  @keyframes mistDrift {
+    0%,
+    100% { opacity: 0.35; }
+    50% { opacity: 0.7; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .anim-mist { animation: none; }
+  }
+}

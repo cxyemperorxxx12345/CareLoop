@@ -1,0 +1,285 @@
+// 健康打卡：每日体征记录 + 异常即时校验 + 近14天趋势图
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Activity, CalendarCheck2, TriangleAlert } from 'lucide-react';
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/db/supabase';
+import { getMyPatient, patientApi } from '@/lib/api';
+
+interface CheckinRow {
+  systolic: number | null;
+  diastolic: number | null;
+  heart_rate: number | null;
+  created_at: string;
+}
+
+interface ChartPoint {
+  date: string;
+  systolic: number | null;
+  diastolic: number | null;
+  heart_rate: number | null;
+}
+
+// 字符串转数字，空值/非法返回 null
+function num(v: string): number | null {
+  const n = parseFloat(v);
+  return Number.isNaN(n) ? null : n;
+}
+
+export function CheckinPage() {
+  const navigate = useNavigate();
+  const [patient, setPatient] = useState<{ id: string } | null>(null);
+  const [systolic, setSystolic] = useState('');
+  const [diastolic, setDiastolic] = useState('');
+  const [heartRate, setHeartRate] = useState('');
+  const [temperature, setTemperature] = useState('');
+  const [glucose, setGlucose] = useState('');
+  const [weight, setWeight] = useState('');
+  const [pain, setPain] = useState(0);
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [chart, setChart] = useState<ChartPoint[]>([]);
+
+  // 体征即时校验：体温 >37.3 或血压 ≥140/90 黄色提示；≥39 或 ≥180 红色危险
+  const tempVal = num(temperature);
+  const sysVal = num(systolic);
+  const diaVal = num(diastolic);
+  const warnVital = (tempVal !== null && tempVal > 37.3) || (sysVal !== null && sysVal >= 140) || (diaVal !== null && diaVal >= 90);
+  const dangerVital = (tempVal !== null && tempVal >= 39) || (sysVal !== null && sysVal >= 180);
+
+  // 近 14 天趋势：按天聚合，同一天取最后一条
+  const loadChart = async (pid: string) => {
+    const rows = (await patientApi.checkinHistory(pid, 14)) as CheckinRow[];
+    const byDay = new Map<string, ChartPoint>();
+    for (const r of rows) {
+      const date = r.created_at.slice(5, 10);
+      byDay.set(date, { date, systolic: r.systolic, diastolic: r.diastolic, heart_rate: r.heart_rate });
+    }
+    setChart(Array.from(byDay.values()));
+  };
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const p = await getMyPatient();
+        if (!alive) return;
+        setPatient(p);
+        if (p) await loadChart((p as { id: string }).id);
+      } catch {
+        // 趋势加载失败不影响打卡
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const doSubmit = async () => {
+    if (!patient || submitting) return;
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('checkins').insert({
+        patient_id: patient.id,
+        systolic: sysVal,
+        diastolic: diaVal,
+        heart_rate: num(heartRate),
+        temperature: tempVal,
+        blood_glucose: num(glucose),
+        weight: num(weight),
+        pain_score: pain,
+        note: note.trim() || null,
+      });
+      if (error) throw error;
+      toast.success('打卡成功');
+      setSystolic('');
+      setDiastolic('');
+      setHeartRate('');
+      setTemperature('');
+      setGlucose('');
+      setWeight('');
+      setPain(0);
+      setNote('');
+      await loadChart(patient.id);
+    } catch {
+      toast.error('打卡失败，请稍后重试');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onSubmitClick = () => {
+    // 危险指标先弹确认，可选择跳转症状自查或继续提交
+    if (dangerVital) setConfirmOpen(true);
+    else doSubmit();
+  };
+
+  const todayLabel = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+
+  return (
+    <div className="space-y-4 p-4">
+      <div className="pt-2">
+        <h1 className="text-2xl font-bold">健康打卡</h1>
+        <p className="mt-1 text-sm text-muted-foreground">今天是 {todayLabel}</p>
+      </div>
+
+      {!patient ? (
+        <Card className="rounded-2xl">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">还没有找到您的患者档案，暂时无法打卡。</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarCheck2 className="h-4 w-4 shrink-0 text-primary" />
+              记录今日体征
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="sys">收缩压（mmHg）</Label>
+                <Input id="sys" type="number" inputMode="numeric" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="120" value={systolic} onChange={(e) => setSystolic(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="dia">舒张压（mmHg）</Label>
+                <Input id="dia" type="number" inputMode="numeric" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="80" value={diastolic} onChange={(e) => setDiastolic(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="hr">心率（次/分）</Label>
+                <Input id="hr" type="number" inputMode="numeric" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="72" value={heartRate} onChange={(e) => setHeartRate(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="temp">体温（°C）</Label>
+                <Input id="temp" type="number" inputMode="decimal" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="36.5" value={temperature} onChange={(e) => setTemperature(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="glu">血糖（mmol/L）</Label>
+                <Input id="glu" type="number" inputMode="decimal" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="5.6" value={glucose} onChange={(e) => setGlucose(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="weight">体重（kg）</Label>
+                <Input id="weight" type="number" inputMode="decimal" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="60" value={weight} onChange={(e) => setWeight(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>
+                疼痛评分（<span className="sig-num">{pain}</span>/10）
+              </Label>
+              <Slider value={[pain]} onValueChange={(v) => setPain(v[0] ?? 0)} min={0} max={10} step={1} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="note">备注（选填）</Label>
+              <Textarea
+                id="note"
+                placeholder="今天的睡眠、饮食、不适情况…"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="resize-none rounded-2xl text-sm"
+              />
+            </div>
+
+            {/* 体征即时校验提示 */}
+            {dangerVital ? (
+              <div className="flex items-start gap-2 rounded-xl bg-triage-red-bg p-3 text-triage-red">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="text-sm">体温或收缩压已达危险范围，建议先完成症状自查或立即就医。</p>
+              </div>
+            ) : warnVital ? (
+              <div className="flex items-start gap-2 rounded-xl bg-triage-amber-bg p-3 text-triage-amber">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="text-sm">体温或血压偏高，请注意休息并持续观察。</p>
+              </div>
+            ) : null}
+
+            <Button type="button" className="h-12 w-full rounded-xl text-[15px]" disabled={submitting} onClick={onSubmitClick}>
+              {submitting ? '提交中…' : '完成打卡'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 近 14 天趋势 */}
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="h-4 w-4 shrink-0 text-primary" />
+            近 14 天趋势
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {chart.length === 0 ? (
+            <p className="text-sm text-muted-foreground">近 14 天还没有打卡记录，完成第一次打卡后，这里会显示您的体征变化趋势。</p>
+          ) : (
+            <div className="w-full min-w-0 overflow-hidden">
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={chart} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                  <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={44} />
+                  <Tooltip
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, fontSize: 12 }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line type="monotone" dataKey="systolic" name="收缩压" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="diastolic" name="舒张压" stroke="hsl(var(--sig-rose))" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="heart_rate" name="心率" stroke="hsl(var(--triage-amber))" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 危险指标确认弹窗 */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-[calc(100%-2rem)] md:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>指标异常，建议先完成症状自查</DialogTitle>
+            <DialogDescription>
+              您填写的体温或血压已达到危险范围。为了您的安全，建议先完成一次症状自查，智能分诊会给出更合适的处置建议。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:flex-col">
+            <Button
+              type="button"
+              className="w-full rounded-2xl"
+              onClick={() => {
+                setConfirmOpen(false);
+                navigate('/patient/symptom');
+              }}
+            >
+              去症状自查
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full rounded-2xl"
+              onClick={() => {
+                setConfirmOpen(false);
+                doSubmit();
+              }}
+            >
+              继续提交打卡
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+export default CheckinPage;

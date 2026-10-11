@@ -1,0 +1,213 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* ============================================================
+   极客终端 · CRT 荧光 / CLI 优先 / 低保真怀旧
+   极深绿黑作显示器基底，荧光绿为主色、琥珀橙为强调色，
+   层级只靠荧光的明度与不透明度变化。文本为主、图形为辅。
+   小程序端字体需在 app.tsx 中通过 Taro.loadFontFace 加载：
+     Source Han Mono SC（正文等宽）、ChillBitmap 16px（点阵标题）
+   ============================================================ */
+
+@font-face {
+  font-family: 'Source Han Mono SC';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://resource-static.cdn.bcebos.com/fonts/SourceHanMonoSC-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'ChillBitmap 16px';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://resource-static.cdn.bcebos.com/fonts/ChillBitmap_16px.ttf') format('truetype');
+}
+
+@layer base {
+  :root {
+    /* CRT 深绿黑基底 + 荧光绿 / 琥珀橙前景 */
+    --background: 128 30% 5%;
+    --foreground: 120 55% 80%;
+    --card: 130 28% 8%;
+    --card-foreground: 120 55% 82%;
+    --popover: 130 30% 7%;
+    --popover-foreground: 120 55% 82%;
+    --primary: 135 100% 50%; /* 荧光绿，配深绿黑字 13.6:1 */
+    --primary-foreground: 130 45% 6%;
+    --secondary: 130 20% 14%;
+    --secondary-foreground: 120 55% 82%;
+    --muted: 130 18% 13%;
+    --muted-foreground: 120 22% 55%;
+    --accent: 39 100% 52%; /* 琥珀橙，配深褐字 9.3:1 */
+    --accent-foreground: 36 45% 8%;
+    --destructive: 0 85% 60%; /* 告警红同为荧光色，沿用深底字（5.0:1） */
+    --destructive-foreground: 0 45% 8%;
+    --border: 128 40% 18%;
+    --input: 128 40% 18%;
+    --ring: 135 100% 50%;
+    --radius: 0.125rem;
+    --chart-1: 135 100% 50%;
+    --chart-2: 39 100% 52%;
+    --chart-3: 0 85% 60%;
+    --chart-4: 190 90% 55%;
+    --chart-5: 280 70% 65%;
+    --gradient-primary: linear-gradient(135deg, hsl(135 100% 50% / 0.22), hsl(160 100% 45% / 0.05));
+    --gradient-subtle: linear-gradient(180deg, hsl(130 30% 8%), hsl(128 30% 5%));
+    --glow-phosphor: 0 0 8px hsl(135 100% 50% / 0.55);
+    --glow-amber: 0 0 8px hsl(39 100% 52% / 0.55);
+    --sidebar-background: 130 30% 7%;
+    --sidebar-foreground: 120 55% 80%;
+    --sidebar-primary: 135 100% 50%;
+    --sidebar-primary-foreground: 130 45% 6%;
+    --sidebar-accent: 130 20% 14%;
+    --sidebar-accent-foreground: 120 55% 82%;
+    --sidebar-border: 128 40% 18%;
+    --sidebar-ring: 135 100% 50%;
+  }
+
+  /* 主题本身即暗色，.dark 保持同值作兼容层 */
+  .dark {
+    --background: 128 30% 5%;
+    --foreground: 120 55% 80%;
+    --card: 130 28% 8%;
+    --card-foreground: 120 55% 82%;
+    --popover: 130 30% 7%;
+    --popover-foreground: 120 55% 82%;
+    --primary: 135 100% 50%;
+    --primary-foreground: 130 45% 6%;
+    --secondary: 130 20% 14%;
+    --secondary-foreground: 120 55% 82%;
+    --muted: 130 18% 13%;
+    --muted-foreground: 120 22% 55%;
+    --accent: 39 100% 52%;
+    --accent-foreground: 36 45% 8%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 45% 8%;
+    --border: 128 40% 18%;
+    --input: 128 40% 18%;
+    --ring: 135 100% 50%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Source Han Mono SC', 'Courier New', ui-monospace, Consolas, monospace;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：CRT 扫描线 —— 等距横向荧光条纹，模拟显像管刷新伪影 */
+  .crt-scanlines {
+    background-image: repeating-linear-gradient(
+      0deg,
+      hsl(var(--primary) / 0.05) 0px,
+      hsl(var(--primary) / 0.05) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+
+  /* 荧光余晖：文字外扩光晕，磷光屏的招牌质感 */
+  .text-glow {
+    text-shadow: var(--glow-phosphor);
+  }
+  .text-glow-amber {
+    text-shadow: var(--glow-amber);
+  }
+
+  /* 终端面板：单像素荧光描边 + 内侧微光，不用模糊玻璃 */
+  .terminal-panel {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    box-shadow: inset 0 0 24px hsl(var(--primary) / 0.06);
+  }
+
+  /* 点阵标题字：低保真像素感 */
+  .font-bitmap {
+    font-family: 'ChillBitmap 16px', 'Source Han Mono SC', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  /* 命令提示符：行首自动生成 CLI 前导符 */
+  .prompt-line::before {
+    content: '> ';
+    color: hsl(var(--primary));
+  }
+
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+  .bg-gradient-subtle {
+    background-image: var(--gradient-subtle);
+  }
+
+  /* 块状光标闪烁 */
+  .cursor-blink {
+    animation: cursor-blink 1s step-end infinite;
+  }
+
+  /* 电压不稳的整屏轻微明灭 */
+  .crt-flicker {
+    animation: crt-flicker 3.5s linear infinite;
+  }
+
+  /* 信号干扰：横向抖动一次，用于入场或状态切换 */
+  .glitch-in {
+    animation: glitch-in 0.4s steps(4, end) both;
+  }
+}
+
+@keyframes cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes crt-flicker {
+  0%,
+  92%,
+  100% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.7;
+  }
+  94% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes glitch-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-blink,
+  .crt-flicker,
+  .glitch-in {
+    animation: none;
+  }
+}

@@ -1,0 +1,175 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* ============================================================
+   印刷风 · 套印错位 / 半调网点 / 有限色域
+   纸白基底 + 粗黑线条，印刷粉与印刷蓝双色套印，橙红少量点缀。
+   所有色块扁平、硬边、直接：禁止渐变，禁止模糊阴影。
+   小程序端字体需在 app.tsx 中通过 Taro.loadFontFace 加载：
+     YouSheBiaoTiHei（标题）、AlibabaPuHuiTi（正文）
+   ============================================================ */
+
+@font-face {
+  font-family: 'YouSheBiaoTiHei';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/YouSheBiaoTiHei_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AlibabaPuHuiTi';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/AlibabaPuHuiTi_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 纸白 / 粗黑 / 印刷粉 / 印刷蓝 / 橙红 —— 严格有限色域 */
+    --background: 40 60% 98%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 339 68% 50%; /* 印刷粉，明度压到白字达 AA 4.8:1 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 30% 93%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 40 25% 93%;
+    --muted-foreground: 0 0% 32%;
+    --accent: 221 83% 53%; /* 印刷蓝 */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 18 88% 42%; /* 橙红：唯一的第四色 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 10%; /* 描边即粗黑线 */
+    --input: 0 0% 10%;
+    --ring: 339 68% 50%;
+    --radius: 0.25rem; /* 硬边，几乎不倒角 */
+    --chart-1: 339 68% 50%;
+    --chart-2: 221 83% 53%;
+    --chart-3: 18 88% 46%;
+    --chart-4: 0 0% 18%;
+    --chart-5: 40 18% 62%;
+    --sidebar-background: 40 45% 96%;
+    --sidebar-foreground: 0 0% 12%;
+    --sidebar-primary: 339 68% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 30% 90%;
+    --sidebar-accent-foreground: 0 0% 12%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 339 68% 50%;
+  }
+
+  /* 暗色：夜班油墨 —— 表面翻成暖调深褐（沿用纸的暖色相，不用中性灰蓝），
+     线条与描边反转为纸白，套印双色略提亮但仍保持白字 AA */
+  .dark {
+    --background: 36 12% 9%;
+    --foreground: 40 28% 94%;
+    --card: 34 12% 13%;
+    --card-foreground: 40 28% 94%;
+    --popover: 34 12% 13%;
+    --popover-foreground: 40 28% 94%;
+    --primary: 339 72% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 34 10% 18%;
+    --secondary-foreground: 40 28% 94%;
+    --muted: 34 10% 18%;
+    --muted-foreground: 40 14% 72%;
+    --accent: 221 85% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 18 88% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 16% 62%; /* 暗底上的线条改用纸白，保留粗描边语言 */
+    --input: 40 16% 62%;
+    --ring: 339 72% 56%;
+    --sidebar-background: 36 12% 11%;
+    --sidebar-foreground: 40 24% 90%;
+    --sidebar-primary: 339 72% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 34 10% 18%;
+    --sidebar-accent-foreground: 40 24% 90%;
+    --sidebar-border: 40 16% 58%;
+    --sidebar-ring: 339 72% 56%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'AlibabaPuHuiTi', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：半调网点 —— 老式印刷机的粗粝网屏质感，低透明度不压阅读 */
+  .halftone {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.22) 1px, transparent 1.5px);
+    background-size: 8px 8px;
+  }
+
+  /* 硬边套印阴影：纯位移实色投影，禁止任何模糊半径 */
+  .shadow-hard {
+    box-shadow: 3px 3px 0 0 hsl(var(--foreground));
+  }
+  .shadow-hard-primary {
+    box-shadow: 3px 3px 0 0 hsl(var(--primary));
+  }
+  .shadow-hard-accent {
+    box-shadow: 3px 3px 0 0 hsl(var(--accent));
+  }
+
+  /* 分区版块：粗描边 + 硬阴影，像海报上被排版切分的一格 */
+  .print-block {
+    border: 2px solid hsl(var(--border));
+    border-radius: var(--radius);
+    background-color: hsl(var(--card));
+    box-shadow: 4px 4px 0 0 hsl(var(--foreground));
+  }
+
+  /* 套色偏移描边：粉蓝错位，模拟套印不准的印刷趣味 */
+  .misprint {
+    text-shadow: 2px 2px 0 hsl(var(--primary) / 0.55), -2px -1px 0 hsl(var(--accent) / 0.4);
+  }
+
+  /* 标题字：放大、加粗、微加字距的印刷标题感 */
+  .font-display {
+    font-family: 'YouSheBiaoTiHei', 'AlibabaPuHuiTi', sans-serif;
+    letter-spacing: 0.02em;
+  }
+
+  /* 按压反馈：向右下位移，硬阴影收缩，像纸张被压下去 */
+  .press-ink {
+    transition: transform 0.1s linear, box-shadow 0.1s linear;
+  }
+  .press-ink:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 0 hsl(var(--foreground));
+  }
+
+  /* 入场：短促淡入 + 叠印归位 */
+  .misprint-in {
+    animation: misprint-in 0.28s steps(3, end) both;
+  }
+}
+
+@keyframes misprint-in {
+  from {
+    opacity: 0;
+    transform: translate(-3px, -2px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .misprint-in {
+    animation: none;
+  }
+  .press-ink {
+    transition: none;
+  }
+}

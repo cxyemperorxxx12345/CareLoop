@@ -1,0 +1,185 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* ============================================================
+   点亮 · 纯黑基底 / 戏剧聚光 / 金属折射
+   近黑舞台底色，暖调光源色作主光，冷银铬色作点缀高光；
+   明暗对比极强，光只落在棱角与主体上，其余大面积暗调留白。
+   小程序端字体需在 app.tsx 中通过 Taro.loadFontFace 加载：OPPOSans4
+   ============================================================ */
+
+@font-face {
+  font-family: 'OPPOSans4';
+  src: url('https://resource-static.cdn.bcebos.com/fonts/OPPOSans4.0.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 默认即暗色：深邃剧场基底 + 暖金主光 + 银铬高光 */
+    --background: 30 27% 4%;
+    --foreground: 40 33% 92%;
+    --card: 33 31% 8%;
+    --card-foreground: 40 33% 92%;
+    --popover: 33 31% 8%;
+    --popover-foreground: 40 33% 92%;
+    --primary: 37 74% 65%; /* 主光源暖金，配近黑字 9.9:1 */
+    --primary-foreground: 34 42% 7%;
+    --primary-glow: 40 82% 74%;
+    --secondary: 34 22% 14%;
+    --secondary-foreground: 40 33% 92%;
+    --muted: 33 20% 12%;
+    --muted-foreground: 38 18% 68%;
+    --accent: 33 60% 52%; /* 次光源，深一档的暖铜光；亮底故配近黑字 6.5:1 */
+    --accent-foreground: 34 42% 7%;
+    --destructive: 8 74% 44%;
+    --destructive-foreground: 40 33% 96%;
+    --chrome: 210 16% 78%; /* 银铬点缀：金属折射细节 */
+    --border: 35 24% 22%;
+    --input: 35 24% 22%;
+    --ring: 37 74% 65%;
+    --radius: 1rem;
+    --chart-1: 37 74% 65%;
+    --chart-2: 40 82% 74%;
+    --chart-3: 33 60% 52%;
+    --chart-4: 210 16% 78%;
+    --chart-5: 38 18% 50%;
+    --gradient-primary: linear-gradient(135deg, hsl(37 74% 65%), hsl(40 82% 74%));
+    --gradient-subtle: linear-gradient(180deg, hsl(33 31% 10%), hsl(30 27% 5%));
+    --gradient-chrome: linear-gradient(135deg, hsl(210 16% 88%), hsl(210 10% 58%), hsl(210 16% 82%));
+    --shadow-glow: 0 12px 36px -14px hsl(37 74% 65% / 0.45);
+    --sidebar-background: 32 28% 6%;
+    --sidebar-foreground: 40 30% 90%;
+    --sidebar-primary: 37 74% 65%;
+    --sidebar-primary-foreground: 34 42% 7%;
+    --sidebar-accent: 34 22% 14%;
+    --sidebar-accent-foreground: 40 30% 90%;
+    --sidebar-border: 35 24% 20%;
+    --sidebar-ring: 37 74% 65%;
+  }
+
+  /* 主题本身即暗色，.dark 保持同值作兼容层 */
+  .dark {
+    --background: 30 27% 4%;
+    --foreground: 40 33% 92%;
+    --card: 33 31% 8%;
+    --card-foreground: 40 33% 92%;
+    --popover: 33 31% 8%;
+    --popover-foreground: 40 33% 92%;
+    --primary: 37 74% 65%;
+    --primary-foreground: 34 42% 7%;
+    --secondary: 34 22% 14%;
+    --secondary-foreground: 40 33% 92%;
+    --muted: 33 20% 12%;
+    --muted-foreground: 38 18% 68%;
+    --accent: 33 60% 52%;
+    --accent-foreground: 34 42% 7%;
+    --destructive: 8 74% 44%;
+    --destructive-foreground: 40 33% 96%;
+    --border: 35 24% 22%;
+    --input: 35 24% 22%;
+    --ring: 37 74% 65%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'OPPOSans4', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：聚光斑 —— 高亮度中心 + 小柔光晕，像探照灯落在暗面上 */
+  .spotlight {
+    background-image: radial-gradient(
+      circle at 50% 22%,
+      hsl(var(--primary-glow) / 0.32) 0%,
+      hsl(var(--primary) / 0.14) 26%,
+      transparent 62%
+    );
+  }
+
+  /* 受光面：从上缘泼下的暖光，衬出卡片形体 */
+  .lit-surface {
+    background-color: hsl(var(--card));
+    background-image: radial-gradient(130% 92% at 50% 0%, hsl(var(--primary) / 0.14), transparent 62%);
+  }
+
+  /* 恒亮轮廓：暗调中也能勾出棱角的极细高光描边 */
+  .glow-edge {
+    border: 1px solid hsl(var(--primary) / 0.24);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.08), 0 8px 26px -16px hsl(var(--primary) / 0.4);
+  }
+
+  /* 金属折射细线：银铬高光条，用于分隔与徽饰 */
+  .chrome-line {
+    height: 1px;
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--chrome) / 0.75) 50%,
+      transparent
+    );
+  }
+
+  /* 大字标题的光泽描边：字缘一层暖光，与光影互动 */
+  .text-lit {
+    color: hsl(var(--foreground));
+    text-shadow: 0 0 18px hsl(var(--primary) / 0.4), 0 1px 0 hsl(var(--chrome) / 0.28);
+  }
+
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+  .bg-gradient-subtle {
+    background-image: var(--gradient-subtle);
+  }
+  .bg-gradient-chrome {
+    background-image: var(--gradient-chrome);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* 受光后缓慢淡入，模拟人眼适应黑暗 */
+  .fade-in-lit {
+    animation: fade-in-lit 0.72s ease-out both;
+  }
+
+  /* 光源呼吸：亮度极缓起伏，保持画面呼吸感 */
+  .breathe-glow {
+    animation: breathe-glow 5s ease-in-out infinite;
+  }
+}
+
+@keyframes fade-in-lit {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes breathe-glow {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in-lit,
+  .breathe-glow {
+    animation: none;
+    opacity: 1;
+  }
+}

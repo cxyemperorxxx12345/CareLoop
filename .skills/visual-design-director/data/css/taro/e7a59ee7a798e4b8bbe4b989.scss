@@ -1,0 +1,154 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* 神秘主义 · 炭黑基调 / 鎏金主色 / 血红强调 / 羊皮纸文字
+   明暗对比法：厚重内外阴影 + 金箔细线，硬边小圆角，禁用渐变
+   字体：小程序端需在 app.tsx 中通过 Taro.loadFontFace 加载 JiangChengJianRenHei，H5 端由下方 @font-face 生效 */
+@font-face {
+  font-family: 'JiangChengJianRenHei';
+  src: url('https://resource-static.cdn.bcebos.com/fonts/JiangChengJianRenHei.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 表面：炭黑背景 + 略亮石材卡片，文字为羊皮纸黄 */
+    --background: 24 18% 7%;
+    --foreground: 44 45% 86%;
+    --card: 24 22% 11%;
+    --card-foreground: 44 40% 85%;
+    --popover: 24 22% 11%;
+    --popover-foreground: 44 40% 85%;
+    /* 鎏金主色，配炭黑字 8.2:1 */
+    --primary: 44 65% 52%;
+    --primary-foreground: 24 40% 8%;
+    --primary-glow: 44 72% 66%;
+    --secondary: 20 25% 16%;
+    --secondary-foreground: 44 40% 82%;
+    --muted: 24 14% 17%;
+    --muted-foreground: 40 20% 62%;
+    /* 血红强调，配羊皮纸字 7.0:1 */
+    --accent: 0 78% 34%;
+    --accent-foreground: 44 60% 88%;
+    --destructive: 0 74% 42%;
+    --destructive-foreground: 44 60% 90%;
+    /* 描边即金箔饰边 */
+    --border: 40 28% 24%;
+    --input: 40 28% 24%;
+    --ring: 44 65% 52%;
+    --radius: 0.25rem;
+    /* 材质命名色：祖母绿 / 幽灵蓝，用于符文与星图点缀 */
+    --emerald-arcane: 174 60% 24%;
+    --spectral-blue: 197 45% 55%;
+    --shadow-chiaroscuro: 0 18px 40px -14px hsl(0 0% 0% / 0.85);
+    --shadow-inset-vault: inset 0 0 34px -6px hsl(0 0% 0% / 0.75);
+    --chart-1: 44 65% 52%;
+    --chart-2: 0 78% 40%;
+    --chart-3: 174 60% 24%;
+    --chart-4: 197 45% 55%;
+    --chart-5: 40 30% 45%;
+    --sidebar-background: 24 22% 9%;
+    --sidebar-foreground: 44 40% 82%;
+    --sidebar-primary: 44 65% 52%;
+    --sidebar-primary-foreground: 24 40% 8%;
+    --sidebar-accent: 20 25% 16%;
+    --sidebar-accent-foreground: 44 40% 82%;
+    --sidebar-border: 40 28% 24%;
+    --sidebar-ring: 44 65% 52%;
+  }
+
+  /* 主题本身即暗色，.dark 保持同值作兼容层 */
+  .dark {
+    --background: 24 18% 7%;
+    --foreground: 44 45% 86%;
+    --card: 24 22% 11%;
+    --card-foreground: 44 40% 85%;
+    --popover: 24 22% 11%;
+    --popover-foreground: 44 40% 85%;
+    --primary: 44 65% 52%;
+    --primary-foreground: 24 40% 8%;
+    --primary-glow: 44 72% 66%;
+    --secondary: 20 25% 16%;
+    --secondary-foreground: 44 40% 82%;
+    --muted: 24 14% 17%;
+    --muted-foreground: 40 20% 62%;
+    --accent: 0 78% 34%;
+    --accent-foreground: 44 60% 88%;
+    --destructive: 0 74% 42%;
+    --destructive-foreground: 44 60% 90%;
+    --border: 40 28% 24%;
+    --input: 40 28% 24%;
+    --ring: 44 65% 52%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：古籍装饰边框卡片 —— 石材底 + 金箔内描边 + 厚重投影（明暗对比法） */
+  .card-grimoire {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-chiaroscuro), inset 0 0 0 1px hsl(var(--primary) / 0.14);
+  }
+  /* 符文圆环：金色描边 + 外发光，替代模糊实现光晕 */
+  .rune-ring {
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.45), 0 0 18px hsl(var(--primary) / 0.28);
+  }
+  /* 金箔细线分割 */
+  .gold-line { border-bottom: 1px solid hsl(var(--primary) / 0.42); }
+  /* 火漆印章：血红实心 + 内凹阴影 */
+  .wax-seal {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+    border-radius: 9999px;
+    box-shadow: inset 0 2px 6px hsl(0 0% 0% / 0.55), 0 6px 16px -6px hsl(0 0% 0% / 0.8);
+  }
+  /* 风化石材纹理：细密斜向刻痕 */
+  .stone-weathered {
+    background-color: hsl(var(--card));
+    background-image: repeating-linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.05) 0 1px,
+      transparent 1px 7px
+    );
+  }
+  /* 星图刻度：等距金点，用于神圣几何边饰 */
+  .astral-ticks {
+    background-image: radial-gradient(hsl(var(--primary) / 0.32) 1px, transparent 1px);
+    background-size: 14px 14px;
+  }
+  .text-gold-glow { text-shadow: 0 0 8px hsl(var(--primary) / 0.5), 0 1px 2px hsl(0 0% 0% / 0.85); }
+  .text-blood-glow { text-shadow: 0 0 8px hsl(var(--accent) / 0.6), 0 1px 2px hsl(0 0% 0% / 0.85); }
+  .font-arcane { font-family: 'JiangChengJianRenHei', 'STZhongsong', serif; }
+  /* 施法反馈：按下时符文点亮 */
+  .press-sigil { transition: box-shadow 0.25s ease, transform 0.25s ease; }
+  .press-sigil:active {
+    transform: scale(0.98);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.8), 0 0 26px hsl(var(--primary) / 0.5);
+  }
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 1px hsl(var(--primary) / 0.4), 0 0 10px hsl(var(--primary) / 0.2); }
+  50% { box-shadow: 0 0 0 1px hsl(var(--primary) / 0.7), 0 0 22px hsl(var(--primary) / 0.45); }
+}
+@keyframes emerge-from-shadow { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes float-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+.animate-pulse-gold { animation: pulse-gold 2.2s ease-in-out infinite; }
+.animate-emerge { animation: emerge-from-shadow 0.5s ease-out both; }
+.animate-float-slow { animation: float-slow 3.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-gold,
+  .animate-emerge,
+  .animate-float-slow { animation: none; }
+}

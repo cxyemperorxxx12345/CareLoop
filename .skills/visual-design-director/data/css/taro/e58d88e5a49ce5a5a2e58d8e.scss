@@ -1,0 +1,171 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* ============================================================
+   午夜奢华 · 深色天鹅绒基底 + 香槟金饰线
+   标题字体小程序端需在 app.tsx 中通过 Taro.loadFontFace 加载：
+   Taro.loadFontFace({ global: true, family: 'JiYingHuiPianWenSong',
+     source: 'url("https://resource-static.cdn.bcebos.com/fonts/JiYingHuiPianWenSong.woff2")' })
+   ============================================================ */
+
+@font-face {
+  font-family: 'JiYingHuiPianWenSong';
+  src: url('https://resource-static.cdn.bcebos.com/fonts/JiYingHuiPianWenSong.woff2') format('woff2');
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 幕布般的深墨绿底：深邃、克制、有仪式感 */
+    --background: 158 60% 8%;
+    --foreground: 45 40% 94%; /* 珍珠白正文 */
+    --card: 158 55% 14%; /* 天鹅绒面 */
+    --card-foreground: 45 40% 94%;
+    --popover: 158 55% 12%;
+    --popover-foreground: 45 40% 94%;
+    --primary: 45 65% 52%; /* 香槟金：线条、边框、重点文字的灵魂色 */
+    --primary-foreground: 158 60% 8%;
+    --secondary: 158 45% 20%;
+    --secondary-foreground: 45 40% 94%;
+    --muted: 158 40% 18%;
+    --muted-foreground: 150 15% 70%;
+    --accent: 44 78% 71%; /* 金箔高光 */
+    --accent-foreground: 158 60% 8%;
+    --destructive: 356 70% 42%;
+    --destructive-foreground: 45 40% 96%;
+    --border: 45 40% 40%; /* 金色描边 */
+    --input: 158 40% 22%;
+    --ring: 45 65% 52%;
+    --radius: 0.75rem;
+
+    /* 材质：绒面中心亮部 / 金箔光晕 */
+    --gradient-gold: linear-gradient(135deg, hsl(44 78% 71%), hsl(45 65% 48%));
+    --gradient-velvet: radial-gradient(circle at 50% 42%, hsl(156 60% 26%), hsl(158 58% 15%) 62%, hsl(158 60% 8%) 100%);
+    --shadow-gold: 0 0 16rpx hsl(45 80% 55% / 0.55), 0 8rpx 24rpx hsl(158 60% 4% / 0.6);
+    --shadow-card: 0 12rpx 36rpx hsl(158 60% 4% / 0.5);
+
+    /* 图表：金—琥珀—翡翠，沿用奢华调性 */
+    --chart-1: 45 65% 52%;
+    --chart-2: 44 78% 71%;
+    --chart-3: 158 45% 42%;
+    --chart-4: 30 60% 50%;
+    --chart-5: 356 55% 52%;
+
+    --sidebar-background: 158 60% 6%;
+    --sidebar-foreground: 45 30% 88%;
+    --sidebar-primary: 45 65% 52%;
+    --sidebar-primary-foreground: 158 60% 8%;
+    --sidebar-accent: 158 50% 13%;
+    --sidebar-accent-foreground: 45 40% 94%;
+    --sidebar-border: 45 30% 24%;
+    --sidebar-ring: 45 65% 52%;
+  }
+
+  /* 主题本身即暗色，.dark 保持同值作兼容层 */
+  .dark {
+    --background: 158 60% 8%;
+    --foreground: 45 40% 94%;
+    --card: 158 55% 14%;
+    --card-foreground: 45 40% 94%;
+    --popover: 158 55% 12%;
+    --popover-foreground: 45 40% 94%;
+    --primary: 45 65% 52%;
+    --primary-foreground: 158 60% 8%;
+    --secondary: 158 45% 20%;
+    --secondary-foreground: 45 40% 94%;
+    --muted: 158 40% 18%;
+    --muted-foreground: 150 15% 70%;
+    --accent: 44 78% 71%;
+    --accent-foreground: 158 60% 8%;
+    --destructive: 356 70% 42%;
+    --destructive-foreground: 45 40% 96%;
+    --border: 45 40% 40%;
+    --input: 158 40% 22%;
+    --ring: 45 65% 52%;
+  }
+
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-gold {
+    background-image: var(--gradient-gold);
+  }
+  .bg-gradient-velvet {
+    background-image: var(--gradient-velvet);
+  }
+  /* 核心视觉签名：双重金线描边 + 内嵌留白转折，装饰性仪式框 */
+  .gold-frame {
+    border: 2rpx solid hsl(var(--primary) / 0.55);
+    box-shadow:
+      inset 0 0 0 6rpx hsl(var(--background)),
+      inset 0 0 0 8rpx hsl(var(--primary) / 0.28),
+      var(--shadow-card);
+  }
+
+  /* 放射状太阳纹：背景纹理与章节分隔，体现扩张感 */
+  .sunburst {
+    background-image: repeating-conic-gradient(
+      from 0deg,
+      hsl(var(--primary) / 0.08) 0deg 10deg,
+      transparent 10deg 20deg
+    );
+  }
+
+  /* 天鹅绒绒面：中心提亮、四周沉入 */
+  .bg-velvet {
+    background: var(--gradient-velvet);
+  }
+
+  /* 香槟金渐变，用于按钮与饰条 */
+  .bg-gold {
+    background: var(--gradient-gold);
+  }
+
+  .text-gold {
+    color: hsl(45 72% 60%);
+  }
+
+  /* 竖直金线：强化纵向分割的节奏 */
+  .gold-rule-y {
+    width: 2rpx;
+    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.7) 50%, transparent);
+  }
+
+  .shadow-gold-aura {
+    box-shadow: var(--shadow-gold);
+  }
+}
+
+/* 交互强调与入场：极轻微的脉冲缩放 */
+@keyframes lux-pulse {
+  0%,
+  100% {
+    transform: scale3d(1, 1, 1);
+  }
+  50% {
+    transform: scale3d(1.05, 1.05, 1.05);
+  }
+}
+
+@layer utilities {
+  .animate-pulse-slow {
+    animation: lux-pulse 1.6s ease-in-out infinite;
+  }
+  .animate-entrance-pulse {
+    animation: lux-pulse 0.4s ease-in-out both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-slow,
+  .animate-entrance-pulse {
+    animation: none;
+  }
+}

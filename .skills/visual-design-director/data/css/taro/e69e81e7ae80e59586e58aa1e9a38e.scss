@@ -1,0 +1,173 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+/* 极简商务风 —— 冷灰纸感底 + 深邃黑文字 + 纯白卡面 + 唯一强调色清透蓝。
+   古典衬线做标题、无衬线做正文，靠细线、留白与编辑感排版建立秩序；
+   极度克制饱和与对比，一切动效平滑无弹跳。
+   小程序端需在 app.tsx 中通过 Taro.loadFontFace 加载两款字体。 */
+
+@font-face {
+  font-family: 'SourceHanSerifCN';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/SourceHanSerifCN-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'AlibabaPuHuiTi';
+  src: url('https://resource-static.bj.bcebos.com/fonts-skill/AlibabaPuHuiTi_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* 冷灰纸感底 / 深邃黑 / 纯白卡面 */
+    --background: 0 0% 97.6%;
+    --foreground: 0 0% 10.2%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10.2%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10.2%;
+    /* 唯一强调色：清透蓝，明度压到白字达 AA */
+    --primary: 212 92% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 94%;
+    --secondary-foreground: 0 0% 15%;
+    --muted: 0 0% 95.5%;
+    --muted-foreground: 220 6% 44%;
+    /* 强调面：极淡蓝底配深蓝字，用于标签与轻高亮 */
+    --accent: 212 92% 96%;
+    --accent-foreground: 212 92% 34%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 212 92% 47%;
+    --radius: 0.5rem;
+    /* 极淡阴影：出版物级的轻，不允许厚重投影 */
+    --shadow-card: 0 1px 3px hsl(0 0% 0% / 0.04), 0 1px 2px hsl(0 0% 0% / 0.03);
+    --shadow-lift: 0 4px 10px hsl(215 25% 15% / 0.06), 0 12px 28px hsl(215 25% 15% / 0.08);
+    --chart-1: 212 92% 47%;
+    --chart-2: 199 89% 42%;
+    --chart-3: 221 60% 38%;
+    --chart-4: 190 70% 38%;
+    --chart-5: 234 45% 52%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 26%;
+    --sidebar-primary: 212 92% 47%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 95%;
+    --sidebar-accent-foreground: 0 0% 12%;
+    --sidebar-border: 214 18% 89%;
+    --sidebar-ring: 212 92% 47%;
+  }
+
+  /* 暗色：翻成冷灰墨蓝夜间纸面，沿用同一冷灰色相与克制蓝强调 */
+  .dark {
+    --background: 220 14% 10%;
+    --foreground: 210 16% 93%;
+    --card: 220 13% 14%;
+    --card-foreground: 210 16% 93%;
+    --popover: 220 13% 14%;
+    --popover-foreground: 210 16% 93%;
+    --primary: 212 90% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 12% 18%;
+    --secondary-foreground: 210 16% 93%;
+    --muted: 220 12% 18%;
+    --muted-foreground: 214 12% 66%;
+    --accent: 214 30% 20%;
+    --accent-foreground: 212 85% 74%;
+    --destructive: 0 62% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 12% 24%;
+    --input: 220 12% 24%;
+    --ring: 212 90% 56%;
+  }
+}
+
+@layer base {
+  page,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'AlibabaPuHuiTi', -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+    line-height: 1.75;
+  }
+}
+
+@layer utilities {
+  /* 核心视觉签名：编辑感章节标签 —— 宽字距小型大写，配 1px 细线建立章节秩序 */
+  .section-label {
+    font-family: 'AlibabaPuHuiTi', -apple-system, sans-serif;
+    font-size: 22rpx;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+  /* 1px 冷灰细线：章节分隔的唯一手段 */
+  .hairline {
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: hsl(var(--border));
+  }
+  /* 卡片顶部 2px 蓝色强调线 */
+  .accent-rule-top {
+    border-top-width: 2px;
+    border-top-style: solid;
+    border-top-color: hsl(var(--primary));
+  }
+  /* 古典衬线标题 */
+  .font-title-serif {
+    font-family: 'SourceHanSerifCN', 'Songti SC', 'SimSun', serif;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  /* 极淡纸张噪点：靠点阵而非图片，保持干净 */
+  .paper-texture {
+    background-image: radial-gradient(hsl(215 20% 60% / 0.05) 0.5px, transparent 0.5px);
+    background-size: 4px 4px;
+  }
+  /* 低透明度蓝色光晕：只做背景微光，不用模糊滤镜 */
+  .blue-halo {
+    background-image: radial-gradient(circle at 50% 0%, hsl(212 92% 54% / 0.07), transparent 62%);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-lift {
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* 安静淡入：编辑级阅读节奏，平滑无弹跳 */
+  @keyframes quiet-fade-in {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-quiet-in {
+    animation: quiet-fade-in 420ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  /* 触摸态只做轻微回落与阴影变化 */
+  .press-settle {
+    transition: transform 200ms cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 200ms ease;
+  }
+  .press-settle:active {
+    transform: translateY(1px);
+    box-shadow: var(--shadow-card);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-quiet-in,
+    .press-settle {
+      animation: none;
+      transition: none;
+    }
+  }
+}
