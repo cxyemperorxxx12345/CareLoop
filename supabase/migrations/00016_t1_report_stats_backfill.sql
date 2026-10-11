@@ -52,8 +52,8 @@ SET content = jsonb_build_object(
     'symptoms', CASE
       WHEN jsonb_typeof(content -> 'symptoms') = 'array'
         THEN COALESCE(
-          (SELECT jsonb_agg(jsonb_build_object('chief_complaint', t, 'level', 'yellow'))
-           FROM jsonb_array_elements_text(content -> 'symptoms') AS t),
+          (SELECT jsonb_agg(jsonb_build_object('chief_complaint', s.txt, 'level', 'yellow'))
+           FROM jsonb_array_elements_text(content -> 'symptoms') AS s(txt)),
           '[]'::jsonb
         )
       ELSE '[]'::jsonb
