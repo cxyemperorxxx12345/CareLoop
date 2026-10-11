@@ -1,7 +1,8 @@
 // 家属端首页：照护对象今日状态卡（只读）+ 待我处理升级任务（红色优先）+ 近期随访
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { CalendarHeart, ChevronRight, ClipboardCheck, HeartPulse, Pill, ShieldAlert } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CalendarHeart, ChevronRight, ClipboardCheck, HeartPulse, LogOut, Pill, ShieldAlert } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +36,7 @@ function greeting(): string {
 }
 
 export function FamilyDashboardPage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [patient, setPatient] = useState<PatientRow | null>(null);
   const [relation, setRelation] = useState<{ family_name: string; relation: string } | null>(null);
@@ -134,14 +136,35 @@ export function FamilyDashboardPage() {
   );
   const todayLabel = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success('已退出登录');
+      navigate('/login?role=family');
+    } catch {
+      navigate('/login?role=family');
+    }
+  };
+
   return (
     <div className="p-4 space-y-4">
-      <div className="pt-2">
-        <p className="text-sm text-muted-foreground">{todayLabel}</p>
-        <h1 className="mt-1 text-2xl font-bold">{greeting()}，我正在照护 {patient.name}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {relation ? `${relation.relation}视角 · ` : ''}以下信息经患者授权可见
-        </p>
+      <div className="pt-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted-foreground">{todayLabel}</p>
+          <h1 className="mt-1 text-2xl font-bold">{greeting()}，我正在照护 {patient.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {relation ? `${relation.relation}视角 · ` : ''}以下信息经患者授权可见
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleLogout}
+          className="shrink-0 h-9 rounded-xl border-border text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40 gap-1.5"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          退出
+        </Button>
       </div>
 
       {/* 照护对象今日状态卡（只读镜像） */}

@@ -1,11 +1,21 @@
-// 家属端消息中心：照护对象的提醒类消息（只读镜像，不改动患者消息状态）
+// 家属端消息中心：照护对象的提醒类消息（点击查看完整详情弹窗）
 import { useEffect, useState } from 'react';
-import { Bell, CalendarHeart, MessageCircle, Pill } from 'lucide-react';
+import { Bell, CalendarHeart, Clock, MessageCircle, Pill } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/db/supabase';
 import { getFamilyPatient } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 interface MsgRow {
   id: string;
@@ -33,6 +43,7 @@ function timeLabel(iso: string): string {
 export function FamilyMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [msgs, setMsgs] = useState<MsgRow[]>([]);
+  const [activeMsg, setActiveMsg] = useState<MsgRow | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -89,7 +100,19 @@ export function FamilyMessagesPage() {
           const meta = TYPE_META[m.type] ?? { label: '通知', cls: 'bg-muted text-muted-foreground', icon: Bell };
           const Icon = meta.icon;
           return (
-            <Card key={m.id} className="rounded-2xl">
+            <Card
+              key={m.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveMsg(m)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveMsg(m);
+                }
+              }}
+              className="rounded-2xl cursor-pointer transition-shadow hover:shadow-card"
+            >
               <CardContent className="flex items-start gap-3 p-4">
                 <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${meta.cls}`}>
                   <Icon className="h-4 w-4" />
@@ -99,13 +122,51 @@ export function FamilyMessagesPage() {
                     <p className="min-w-0 flex-1 truncate text-[15px] font-semibold">{m.title}</p>
                     <span className="shrink-0 text-xs text-muted-foreground">{timeLabel(m.created_at)}</span>
                   </div>
-                  <p className="mt-1 text-[15px] leading-relaxed text-foreground/80">{m.content}</p>
+                  <p className="mt-1 text-[15px] leading-relaxed text-foreground/80 line-clamp-2">{m.content}</p>
                 </div>
               </CardContent>
             </Card>
           );
         })
       )}
+
+      {/* 消息详情 Dialog */}
+      <Dialog open={!!activeMsg} onOpenChange={(open) => !open && setActiveMsg(null)}>
+        <DialogContent className="max-w-[calc(100%-2rem)] md:max-w-lg rounded-2xl">
+          {activeMsg && (
+            <>
+              <DialogHeader className="text-left space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className={cn('shrink-0', (TYPE_META[activeMsg.type] ?? { cls: 'bg-muted text-muted-foreground' }).cls)}>
+                    {(TYPE_META[activeMsg.type] ?? { label: '通知' }).label}
+                  </Badge>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {new Date(activeMsg.created_at).toLocaleString('zh-CN', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <DialogTitle className="text-lg font-bold leading-snug">{activeMsg.title}</DialogTitle>
+                <DialogDescription className="sr-only">消息详细内容</DialogDescription>
+              </DialogHeader>
+
+              <div className="rounded-xl bg-muted/50 p-4 text-[15px] leading-relaxed text-foreground whitespace-pre-wrap">
+                {activeMsg.content}
+              </div>
+
+              <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setActiveMsg(null)}>
+                  关闭
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <p className="text-xs text-muted-foreground text-center">消息为患者端提醒的同步副本，已读状态以患者本人操作为准</p>
     </div>

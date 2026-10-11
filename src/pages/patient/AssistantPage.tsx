@@ -1,11 +1,15 @@
 // 智能问答：对话式 UI + assistant-chat Edge Function SSE 流式输出
 import { useEffect, useRef, useState } from 'react';
 import { Streamdown } from 'streamdown';
-import { Bot, SendHorizonal } from 'lucide-react';
+import { AlertTriangle, Bot, PhoneCall, SendHorizonal, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
+import { getMyPatient } from '@/lib/api';
+
+// 识别是否需要联系医护 / 就诊
+const ESCALATION_PATTERN = /(就医|急诊|就诊|联系医生|联系医护|去医院|随访电话|拨打|紧急|危险信号|心内科|心外科|立即前往)/;
 
 // 剥离 <think>…</think> 思考过程：未闭合时返回空串（思考中），闭合后仅返回正文回答
 function stripThink(raw: string): string {
@@ -29,9 +33,45 @@ export function AssistantPage() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [syncedAlertIds, setSyncedAlertIds] = useState<Record<number, boolean>>({});
+  const [patientInfo, setPatientInfo] = useState<{ id: string; name: string; department?: string } | null>(null);
   const idRef = useRef(1);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    getMyPatient().then((p) => {
+      if (p) setPatientInfo(p as { id: string; name: string; department?: string });
+    }).catch(() => undefined);
+  }, []);
+
+  // 一键同步到医护端：在 alerts 表写入一条待办预警，并通知患者
+  const syncToClinician = async (msgId: number, content: string) => {
+    if (!patientInfo) {
+      toast.error('未找到患者信息');
+      return;
+    }
+    if (syncedAlertIds[msgId]) {
+      toast.info('已同步过，请勿重复操作');
+      return;
+    }
+    try {
+      const summary = content.slice(0, 120);
+      const { error } = await supabase.from('alerts').insert({
+        patient_id: patientInfo.id,
+        level: 'yellow',
+        source: 'symptom',
+        detail: `【患者咨询上报】${summary}…`,
+        status: 'open',
+        assignee_role: 'clinician',
+      });
+      if (error) throw new Error(error.message);
+      setSyncedAlertIds((prev) => ({ ...prev, [msgId]: true }));
+      toast.success('已一键同步到医护端预警中心，随访护士将尽快查看');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '同步失败，请稍后重试');
+    }
+  };
 
   // 新消息或流式内容更新时滚动到底部
   useEffect(() => {
@@ -171,9 +211,40 @@ export function AssistantPage() {
                   {isUser ? (
                     m.content
                   ) : m.content ? (
-                    <Streamdown className="text-sm [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-4 [&_ul]:list-disc [&_ul]:pl-4 [&_p]:leading-relaxed">
-                      {m.content}
-                    </Streamdown>
+                    <>
+                      <Streamdown className="text-sm [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-4 [&_ul]:list-disc [&_ul]:pl-4 [&_p]:leading-relaxed">
+                        {m.content}
+                      </Streamdown>
+                      {/* 若助手建议就诊/联系医护，跳出一键动作卡片 */}
+                      {ESCALATION_PATTERN.test(m.content) && (
+                        <div className="mt-3 rounded-xl border border-triage-amber/30 bg-triage-amber-bg/50 p-2.5 text-xs space-y-2">
+                          <div className="flex items-center gap-1.5 font-bold text-triage-amber">
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                            <span>助手提示：该情况建议与医护团队确认</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="default"
+                              disabled={syncedAlertIds[m.id]}
+                              onClick={() => syncToClinician(m.id, m.content)}
+                              className="h-8 rounded-lg text-xs gap-1 shadow-sm"
+                            >
+                              <ShieldAlert className="h-3.5 w-3.5" />
+                              {syncedAlertIds[m.id] ? '已同步医护端' : '一键同步到医护端'}
+                            </Button>
+                            <a
+                              href="tel:010-88886666"
+                              className="inline-flex items-center gap-1 h-8 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                            >
+                              <PhoneCall className="h-3.5 w-3.5 text-primary" />
+                              直拨随访科室
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <span className="text-sm text-muted-foreground">正在思考…</span>
                   )}

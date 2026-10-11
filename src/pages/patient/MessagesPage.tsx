@@ -1,10 +1,18 @@
-// 消息中心：全部/未读筛选 + 一键已读 + 类型徽章 + 点击标记已读并按 link_path 跳转
+// 消息中心：全部/未读筛选 + 一键已读 + 类型徽章 + 点击查看详情弹窗（标记已读）+ 支持按 link_path 跳转
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCheck, Inbox } from 'lucide-react';
+import { ArrowRight, CheckCheck, Clock, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getMyPatient, patientApi } from '@/lib/api';
@@ -47,6 +55,7 @@ export function MessagesPage() {
   const [list, setList] = useState<MsgRow[]>([]);
   const [unread, setUnread] = useState(0);
   const [tab, setTab] = useState('all');
+  const [activeMsg, setActiveMsg] = useState<MsgRow | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -70,14 +79,14 @@ export function MessagesPage() {
     };
   }, []);
 
-  // 点击整条：标记已读（乐观更新）+ 有链接则跳转
+  // 点击整条：标记已读（乐观更新）并打开详情弹窗
   const open = (m: MsgRow) => {
     if (!m.read) {
       setList((prev) => prev.map((x) => (x.id === m.id ? { ...x, read: true } : x)));
       setUnread((n) => Math.max(0, n - 1));
       patientApi.markMessageRead(m.id).catch(() => undefined);
     }
-    if (m.link_path) navigate(m.link_path);
+    setActiveMsg(m);
   };
 
   const shown = tab === 'unread' ? list.filter((m) => !m.read) : list;
@@ -202,6 +211,58 @@ export function MessagesPage() {
           })}
         </div>
       )}
+
+      {/* 消息详情 Dialog */}
+      <Dialog open={!!activeMsg} onOpenChange={(open) => !open && setActiveMsg(null)}>
+        <DialogContent className="max-w-[calc(100%-2rem)] md:max-w-lg rounded-2xl">
+          {activeMsg && (
+            <>
+              <DialogHeader className="text-left space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className={cn('shrink-0', (TYPE_META[activeMsg.type] ?? TYPE_META.reminder).cls)}>
+                    {(TYPE_META[activeMsg.type] ?? TYPE_META.reminder).label}
+                  </Badge>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {new Date(activeMsg.created_at).toLocaleString('zh-CN', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <DialogTitle className="text-lg font-bold leading-snug">{activeMsg.title}</DialogTitle>
+                <DialogDescription className="sr-only">消息详细内容</DialogDescription>
+              </DialogHeader>
+
+              <div className="rounded-xl bg-muted/50 p-4 text-[15px] leading-relaxed text-foreground whitespace-pre-wrap">
+                {activeMsg.content}
+              </div>
+
+              <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">
+                {activeMsg.link_path && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const path = activeMsg.link_path!;
+                      setActiveMsg(null);
+                      navigate(path);
+                    }}
+                    className="gap-1.5"
+                  >
+                    前往处理
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button type="button" variant="outline" onClick={() => setActiveMsg(null)}>
+                  关闭
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

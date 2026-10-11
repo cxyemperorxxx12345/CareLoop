@@ -126,31 +126,31 @@ export const LandingPage: React.FC = () => {
                 患者一个人也能安心用：看清单、打勾、有疑问问助手。
               </p>
               <div className="mt-auto pt-6 flex justify-center md:justify-start">
-                <div className="sig-phone">
-                  <div className="sig-screen">
-                    <div className="bg-primary/90 px-4 py-2.5 flex items-center justify-between">
+                <div className="sig-phone h-[23.5rem] flex flex-col">
+                  <div className="sig-screen flex-1 flex flex-col overflow-hidden">
+                    <div className="bg-primary/90 px-4 py-2.5 flex items-center justify-between shrink-0">
                       <p className="text-[13px] font-medium text-primary-foreground">愈见 · 今日</p>
                       <p className="text-[12px] sig-num text-primary-foreground/80">术后第 9 天</p>
                     </div>
-                    <div className="p-4 space-y-3">
-                      <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-                        <p className="text-[12px] text-muted-foreground">今晨用药 · 08:00 · 已确认</p>
-                        <p className="text-[14px] font-black mt-1">硫酸氢氯吡格雷片 75mg</p>
-                        <div className="mt-2.5 flex gap-2">
-                          <span className="text-[12px] font-medium rounded-full bg-primary text-primary-foreground px-3 py-1">
+                    <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <p className="text-[11px] text-muted-foreground">今晨用药 · 08:00 · 已确认</p>
+                        <p className="text-[13px] font-black mt-0.5 truncate">硫酸氢氯吡格雷片 75mg</p>
+                        <div className="mt-2 flex gap-1.5">
+                          <span className="text-[11px] font-medium rounded-full bg-primary text-primary-foreground px-2.5 py-0.5">
                             已服用
                           </span>
-                          <span className="text-[12px] font-medium rounded-full border border-border px-3 py-1 text-muted-foreground">
+                          <span className="text-[11px] font-medium rounded-full border border-border px-2.5 py-0.5 text-muted-foreground">
                             稍后
                           </span>
                         </div>
                       </div>
-                      <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-                        <p className="text-[12px] text-muted-foreground">血压打卡</p>
-                        <p className="text-[14px] font-black mt-1 sig-num">138/86 mmHg</p>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <p className="text-[11px] text-muted-foreground">血压打卡</p>
+                        <p className="text-[13px] font-black mt-0.5 sig-num">138/86 mmHg</p>
                       </div>
-                      <div className="rounded-2xl p-3.5 bg-triage-amber-bg text-triage-amber">
-                        <p className="text-[12px] font-medium">10月21日 · 门诊拆线复查</p>
+                      <div className="rounded-2xl p-2.5 bg-triage-amber-bg text-triage-amber">
+                        <p className="text-[11px] font-medium">10月21日 · 门诊拆线复查</p>
                       </div>
                     </div>
                   </div>
@@ -159,7 +159,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* 中：家属端 */}
-            <div className="border-t md:border-t-0 md:border-x border-border bg-primary/5 p-7 md:p-10 flex flex-col animate-fade-rise">
+            <div className="border-t md:border-t-0 md:border-x border-border sig-mid-bg p-7 md:p-10 flex flex-col animate-fade-rise">
               <p className="sig-eyebrow">家属端 · 照护协同</p>
               <h2 className="mt-4 font-black text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.3]">
                 帮得上忙的
@@ -173,26 +173,26 @@ export const LandingPage: React.FC = () => {
                 不在身边也能照护：代打卡、联系患者、需要时一键转医护。
               </p>
               <div className="mt-auto pt-6 flex justify-center">
-                <div className="sig-phone">
-                  <div className="sig-screen">
-                    <div className="bg-triage-amber/90 px-4 py-2.5 flex items-center justify-between">
+                <div className="sig-phone h-[23.5rem] flex flex-col">
+                  <div className="sig-screen flex-1 flex flex-col overflow-hidden">
+                    <div className="bg-triage-amber/90 px-4 py-2.5 flex items-center justify-between shrink-0">
                       <p className="text-[13px] font-medium text-white">家属协助 · 陈明</p>
                       <p className="text-[12px] sig-num text-white/80">待处理 1</p>
                     </div>
-                    <div className="p-4 space-y-3">
-                      <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-                        <p className="text-[12px] font-medium text-triage-amber">【待家属协助】睡前 21:00</p>
-                        <p className="text-[14px] font-black mt-1">阿托伐他汀 20mg</p>
-                        <p className="text-[12px] text-muted-foreground mt-1">超过 30 分钟未确认，请协助</p>
+                    <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <p className="text-[11px] font-medium text-triage-amber">【待家属协助】睡前 21:00</p>
+                        <p className="text-[13px] font-black mt-0.5 truncate">阿托伐他汀 20mg</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">超过 30 分钟未确认，请协助</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <span className="rounded-xl bg-primary text-primary-foreground text-[11px] font-medium px-2 py-2 text-center">已服药</span>
-                        <span className="rounded-xl border border-border text-[11px] font-medium px-2 py-2 text-center">已联系</span>
-                        <span className="rounded-xl border border-border text-[11px] font-medium px-2 py-2 text-center">转医护</span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <span className="rounded-xl bg-primary text-primary-foreground text-[11px] font-medium px-2 py-1.5 text-center">已服药</span>
+                        <span className="rounded-xl border border-border text-[11px] font-medium px-2 py-1.5 text-center">已联系</span>
+                        <span className="rounded-xl border border-border text-[11px] font-medium px-2 py-1.5 text-center">转医护</span>
                       </div>
-                      <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-                        <p className="text-[12px] text-muted-foreground">今日照护 · 陈桂芳</p>
-                        <p className="text-[14px] font-black mt-1 sig-num">已服 3/4 次</p>
+                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                        <p className="text-[11px] text-muted-foreground">今日照护 · 陈桂芳</p>
+                        <p className="text-[13px] font-black mt-0.5 sig-num">已服 3/4 次</p>
                       </div>
                     </div>
                   </div>
@@ -343,9 +343,9 @@ export const LandingPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="mt-10 grid md:grid-cols-3 gap-8 md:gap-6 items-center justify-items-center">
+            <div className="mt-10 flex flex-col md:grid md:grid-cols-3 gap-8 md:gap-6 items-center justify-center">
               {/* 患者端实景手机模型（尺寸收小，自研界面，严格居中） */}
-              <div className="flex flex-col items-center w-full md:max-w-[17rem]">
+              <div className="flex flex-col items-center w-full max-w-[17rem] mx-auto">
                 <div className="w-[15.5rem] rounded-[2.5rem] p-2.5 bg-neutral-900 shadow-2xl border-2 border-neutral-700/60 select-none">
                   {/* 灵动岛与听筒 */}
                   <div className="w-20 h-4 bg-black rounded-full mx-auto mb-2 flex items-center justify-end px-2">
@@ -445,7 +445,7 @@ export const LandingPage: React.FC = () => {
               </div>
 
               {/* 家属端实景手机模型（待我处理 + 三动作） */}
-              <div className="flex flex-col items-center w-full md:max-w-[17rem]">
+              <div className="flex flex-col items-center w-full max-w-[17rem] mx-auto">
                 <div className="w-[15.5rem] rounded-[2.5rem] p-2.5 bg-neutral-900 shadow-2xl border-2 border-neutral-700/60 select-none">
                   <div className="w-20 h-4 bg-black rounded-full mx-auto mb-2 flex items-center justify-end px-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-neutral-700" />
@@ -503,8 +503,8 @@ export const LandingPage: React.FC = () => {
               </div>
 
               {/* 医护端 Mac 电脑网页版模型（屏幕 + 支架底座，体现桌面使用形态） */}
-              <div className="flex flex-col items-center w-full md:col-span-1">
-                <div className="w-full max-w-[26rem] select-none">
+              <div className="flex flex-col items-center w-full max-w-[21.5rem] sm:max-w-[24rem] md:max-w-[26rem] mx-auto">
+                <div className="w-full select-none">
                   {/* Mac 屏幕 */}
                   <div className="rounded-xl border-[6px] border-neutral-800 bg-neutral-800 shadow-2xl overflow-hidden">
                     <div className="rounded-t-[4px] overflow-hidden">
@@ -714,6 +714,9 @@ export const LandingPage: React.FC = () => {
               <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
                 症状一勾，<span className="text-primary">风险自明</span>
               </h2>
+              <p className="mt-4 text-muted-foreground text-[15px] leading-[1.85]">
+                基于出院分诊标准智能评估，轻微症状居家观察、异常指标电话随访、危险信号立即就医并直通医护。
+              </p>
             </div>
             <div className="mt-10 grid md:grid-cols-3 gap-4 md:gap-5">
               <div className="rounded-3xl p-7 bg-triage-green-bg border border-triage-green/20">

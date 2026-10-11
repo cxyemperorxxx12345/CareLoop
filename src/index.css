@@ -63,15 +63,16 @@ All colors MUST be HSL.
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 185 81% 29%;
     --destructive-foreground: 0 0% 100%;
-    /* custom tokens | 医疗青绿重定向（类名保留，值对齐 DESIGN.md） */
+    /* custom tokens | 医疗青绿从浅到深阶梯（患者端浅 -> 家属端中浅 -> 医护端中深） */
     --sig-rose: 185 81% 29%;
-    --sig-rose-soft: 184 43% 93%;
+    --sig-rose-soft: 184 35% 96%;
     --sig-cream: 210 29% 97%;
     --sig-ink: 222 47% 11%;
-    --sig-deep: 184 40% 90%;
+    --sig-mid-bg: 184 32% 92%;
+    --sig-deep: 186 36% 82%;
     --sig-deep-card: 0 0% 100%;
-    --sig-deep-border: 186 14% 78%;
-    --sig-deep-muted: 190 15% 42%;
+    --sig-deep-border: 186 20% 70%;
+    --sig-deep-muted: 190 20% 32%;
     /* 语义色四档（全站唯一定义，颜色+图标+文字三重编码） */
     --triage-green: 150 32% 36%;
     --triage-green-bg: 152 32% 93%;
@@ -170,11 +171,14 @@ All colors MUST be HSL.
   font-weight: 500;
   color: hsl(var(--muted-foreground));
 }
-.sig-deep-bg {
-  background: hsl(var(--sig-deep));
-}
 .sig-soft-bg {
   background: hsl(var(--sig-rose-soft));
+}
+.sig-mid-bg {
+  background: hsl(var(--sig-mid-bg));
+}
+.sig-deep-bg {
+  background: hsl(var(--sig-deep));
 }
 .sig-deep-muted {
   color: hsl(var(--sig-deep-muted));
