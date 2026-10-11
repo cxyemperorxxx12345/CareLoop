@@ -9,6 +9,11 @@ lerna-debug.log*
 
 node_modules
 dist
+.toolchain/
+.workbuddy/
+# Windows 保留名垃圾文件：Git Bash 把 /dev/null 传给原生程序（node）后会生成名为 nul 的文件，
+# 该文件在 Windows 下无法用常规命令删除，且已修复 .rules/lint.sh 不再产生新的。
+nul
 dist-ssr
 output
 *.local

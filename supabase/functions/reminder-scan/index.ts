@@ -2,10 +2,48 @@
 // L0站内 → 30min → L1短信(打桩) → L2家属 → L3护士站预警，任意打卡即终止
 import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { getAdminClient } from '../_shared/supabase.ts';
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 const SLOT_NAMES = ['早', '中', '晚', '睡前'];
 const SLOT_TIMES = ['08:00', '12:00', '18:00', '21:00'];
 const ESCALATE_STEP_MIN = 30;
+
+type MessagePayload = {
+  patient_id: string;
+  type: string;
+  title: string;
+  content: string;
+  link_path: string;
+};
+
+// 分钟级时间窗口：YYYY-MM-DDTHH，用于「同一小时内只允许一条」的幂等键
+function hourWindow(d: Date): string {
+  return d.toISOString().slice(0, 13);
+}
+
+// 幂等写入消息：先查后插 + 唯一索引兜底。
+// reminder-scan 每分钟被 pg_cron 调用一次，任何边界条件下的重复触发都不应产生重复消息。
+// 返回 'inserted' | 'duplicate' | 'failed'
+async function insertMessageOnce(
+  admin: SupabaseClient,
+  payload: MessagePayload,
+  dedupKey: string,
+): Promise<'inserted' | 'duplicate' | 'failed'> {
+  const { data: exists, error: selErr } = await admin
+    .from('messages')
+    .select('id')
+    .eq('patient_id', payload.patient_id)
+    .eq('dedup_key', dedupKey)
+    .limit(1);
+  if (!selErr && exists && exists.length) return 'duplicate';
+
+  const { error } = await admin.from('messages').insert({ ...payload, dedup_key: dedupKey });
+  if (!error) return 'inserted';
+  // 23505 unique_violation：并发下已被写入，视为已存在
+  if (error.code === '23505') return 'duplicate';
+  console.error('[reminder-scan] 写入消息失败', dedupKey, error.message);
+  return 'failed';
+}
 
 Deno.serve(async (req: Request): Promise<Response> => {
   const preflight = handleOptions(req);
@@ -56,14 +94,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
           .eq('status', 'snoozed')
           .select('id');
         if (upd && upd.length) {
-          await admin.from('messages').insert({
-            patient_id: r.patient_id,
-            type: 'reminder',
-            title: `该服药啦 · ${SLOT_NAMES[r.slot] ?? ''}`,
-            content: `您稍后提醒的 ${medName} 到点了，请及时打卡确认。`,
-            link_path: '/patient/medications',
-          });
-          result.rearmed += 1;
+          const st = await insertMessageOnce(
+            admin,
+            {
+              patient_id: r.patient_id,
+              type: 'reminder',
+              title: `该服药啦 · ${SLOT_NAMES[r.slot] ?? ''}`,
+              content: `您稍后提醒的 ${medName} 到点了，请及时打卡确认。`,
+              link_path: '/patient/medications',
+            },
+            `med:rearm:${r.id}:${hourWindow(now)}`,
+          );
+          if (st === 'failed') result.errors += 1;
+          if (st === 'inserted') result.rearmed += 1;
         }
         continue;
       }
@@ -77,14 +120,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
           .eq('status', 'pending')
           .select('id');
         if (upd && upd.length) {
-          await admin.from('messages').insert({
-            patient_id: r.patient_id,
-            type: 'reminder',
-            title: `该服药啦 · ${SLOT_NAMES[r.slot] ?? ''}`,
-            content: `到了 ${slotLabel} 的服药时间：${medName}，请打卡确认。`,
-            link_path: '/patient/medications',
-          });
-          result.sent += 1;
+          const st = await insertMessageOnce(
+            admin,
+            {
+              patient_id: r.patient_id,
+              type: 'reminder',
+              title: `该服药啦 · ${SLOT_NAMES[r.slot] ?? ''}`,
+              content: `到了 ${slotLabel} 的服药时间：${medName}，请打卡确认。`,
+              link_path: '/patient/medications',
+            },
+            `med:l0:${r.id}`,
+          );
+          if (st === 'failed') result.errors += 1;
+          if (st === 'inserted') result.sent += 1;
         }
         continue;
       }
@@ -102,14 +150,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
           .in('status', ['sent', 'escalated'])
           .select('id');
         if (upd && upd.length) {
-          await admin.from('messages').insert({
-            patient_id: r.patient_id,
-            type: 'escalation',
-            title: '漏服提醒升级 · 短信通知',
-            content: `您 ${slotLabel} 的 ${medName} 尚未确认，系统已向预留手机号发送短信提醒（演示通道）。`,
-            link_path: '/patient/medications',
-          });
-          result.escalated += 1;
+          const st = await insertMessageOnce(
+            admin,
+            {
+              patient_id: r.patient_id,
+              type: 'escalation',
+              title: '漏服提醒升级 · 短信通知',
+              content: `您 ${slotLabel} 的 ${medName} 尚未确认，系统已向预留手机号发送短信提醒（演示通道）。`,
+              link_path: '/patient/medications',
+            },
+            `med:l1:${r.id}`,
+          );
+          if (st === 'failed') result.errors += 1;
+          if (st === 'inserted') result.escalated += 1;
         }
         continue;
       }
@@ -132,13 +185,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
             .in('status', ['sent', 'escalated'])
             .select('id');
           if (upd && upd.length) {
-            await admin.from('messages').insert({
-              patient_id: r.patient_id,
-              type: 'escalation',
-              title: '漏服提醒升级 · 已通知家属',
-              content: `${slotLabel} 的 ${medName} 仍未确认，已同步通知紧急联系人 ${pt?.emergency_contact ?? ''} 协助督促。`,
-              link_path: '/patient/medications',
-            });
+            const st = await insertMessageOnce(
+              admin,
+              {
+                patient_id: r.patient_id,
+                type: 'escalation',
+                title: '漏服提醒升级 · 已通知家属',
+                content: `${slotLabel} 的 ${medName} 仍未确认，已同步通知紧急联系人 ${pt?.emergency_contact ?? ''} 协助督促。`,
+                link_path: '/patient/medications',
+              },
+              `med:l2:${r.id}`,
+            );
+            if (st === 'failed') result.errors += 1;
+            if (st === 'inserted') result.escalated += 1;
             // 【M1】L2 从"仅发短信"升级为"可处置"：有 ACTIVE 家属绑定时生成家属端待办任务
             const { data: bound } = await admin
               .from('care_relations')
@@ -157,7 +216,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
               });
               result.alerts_created += 1;
             }
-            result.escalated += 1;
           }
         } else {
           // 无家属 → 自动跳级 L3
@@ -175,14 +233,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
               detail: `用药提醒多次未确认（${pt?.name ?? '患者'}，${slotLabel} ${medName}），未登记紧急联系人自动升级至 L3，请护士站电话介入。`,
               status: 'open',
             });
-            await admin.from('messages').insert({
-              patient_id: r.patient_id,
-              type: 'escalation',
-              title: '漏服提醒升级 · 护士站介入',
-              content: `您 ${slotLabel} 的 ${medName} 长时间未确认，护士站已收到预警并可能电话联系您。`,
-              link_path: '/patient/messages',
-            });
-            result.escalated += 1;
+            const st = await insertMessageOnce(
+              admin,
+              {
+                patient_id: r.patient_id,
+                type: 'escalation',
+                title: '漏服提醒升级 · 护士站介入',
+                content: `您 ${slotLabel} 的 ${medName} 长时间未确认，护士站已收到预警并可能电话联系您。`,
+                link_path: '/patient/messages',
+              },
+              `med:l3:${r.id}`,
+            );
+            if (st === 'failed') result.errors += 1;
+            if (st === 'inserted') result.escalated += 1;
             result.alerts_created += 1;
           }
         }
@@ -208,18 +271,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
             patient_id: r.patient_id,
             source: 'medication',
             level: 'yellow',
-            detail: `用药提醒 L3 升级（${pt?.name ?? '患者'}，${slotLabel} ${medName}），30 分钟内未确认，请电话介入并录入处置结论。`,
-            status: 'open',
-          });
-          await admin.from('messages').insert({
-            patient_id: r.patient_id,
-            type: 'escalation',
-            title: '漏服提醒升级 · 护士站介入',
-            content: `您 ${slotLabel} 的 ${medName} 长时间未确认，护士站已收到预警并可能电话联系您。`,
-            link_path: '/patient/messages',
-          });
-          result.escalated += 1;
-          result.alerts_created += 1;
+              detail: `用药提醒 L3 升级（${pt?.name ?? '患者'}，${slotLabel} ${medName}），30 分钟内未确认，请电话介入并录入处置结论。`,
+              status: 'open',
+            });
+            const st = await insertMessageOnce(
+              admin,
+              {
+                patient_id: r.patient_id,
+                type: 'escalation',
+                title: '漏服提醒升级 · 护士站介入',
+                content: `您 ${slotLabel} 的 ${medName} 长时间未确认，护士站已收到预警并可能电话联系您。`,
+                link_path: '/patient/messages',
+              },
+              `med:l3:${r.id}`,
+            );
+            if (st === 'failed') result.errors += 1;
+            if (st === 'inserted') result.escalated += 1;
+            result.alerts_created += 1;
         }
         continue;
       }

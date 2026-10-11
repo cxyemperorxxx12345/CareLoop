@@ -88,16 +88,18 @@ export function CheckinPage() {
     if (!patient || submitting) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('checkins').insert({
-        patient_id: patient.id,
-        systolic: sysVal,
-        diastolic: diaVal,
-        heart_rate: num(heartRate),
-        temperature: tempVal,
-        blood_glucose: num(glucose),
-        weight: num(weight),
-        pain_score: pain,
-        note: note.trim() || null,
+      // 日粒度幂等写入：同一天重复打卡覆盖当日快照，不再裸 insert 造成堆积
+      const { error } = await supabase.rpc('upsert_daily_checkin', {
+        p_patient_id: patient.id,
+        p_systolic: sysVal,
+        p_diastolic: diaVal,
+        p_heart_rate: num(heartRate),
+        p_temperature: tempVal,
+        p_blood_glucose: num(glucose),
+        p_weight: num(weight),
+        p_pain_score: pain,
+        p_note: note.trim() || null,
+        p_created_at: new Date().toISOString(),
       });
       if (error) throw error;
       toast.success('打卡成功');

@@ -140,13 +140,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
       detail: `${flagTitle}：${p.name} 主诉「${chief}」，严重度 ${severity}/10。依据：${evidence}。建议：${advice}`,
       status: 'open',
     });
-    await admin.from('messages').insert({
+    // dedup_key 与本次分诊记录绑定：同一次 symptom_check 只产生一条患者消息
+    const { error: msgErr } = await admin.from('messages').insert({
       patient_id: p.id,
       type: 'triage',
       title: flagTitle,
       content: advice,
       link_path: '/patient/messages',
+      dedup_key: `triage:${checkId}`,
     });
+    if (msgErr && msgErr.code !== '23505') {
+      console.error('[triage-symptom] 写入消息失败', msgErr.message);
+    }
     if (alertErr) return errorResponse('生成预警失败', 500);
 
     // 风险等级升级（只升不降）

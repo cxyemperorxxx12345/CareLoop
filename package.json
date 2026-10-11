@@ -3,9 +3,11 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "echo 'Do not use this command, only use lint to check'",
-    "build": "echo 'Do not use this command, only use lint to check'",
-    "lint": ".rules/lint.sh"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsgo -p tsconfig.check.json",
+    "lint": "bash .rules/lint.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -8,7 +8,9 @@ elif [ ! -e "$VITE_TEMP" ]; then
     mkdir -p "$VITE_TEMP"
 fi
 
-OUTPUT=$(npx vite build --minify false --logLevel error --outDir /workspace/.dist 2>&1)
+# 本地开发：原输出目录 /workspace/.dist 是 Miaoda 沙箱专用路径，Windows/macOS 不存在，
+# 改为项目内的 node_modules/.vite-temp/dist（已被 .gitignore 忽略）。
+OUTPUT=$(npx vite build --minify false --logLevel error --outDir node_modules/.vite-temp/dist 2>&1)
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then

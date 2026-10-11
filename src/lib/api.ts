@@ -7,6 +7,22 @@ export function toArray<T>(data: unknown): T[] {
   return Array.isArray(data) ? (data as T[]) : [];
 }
 
+// 知识库文本归一化：把写入链路中被转义成「字面反斜杠 + n」的换行还原为真实换行符。
+// 用于 knowledge_docs 的 title / content，写入前与读取后都会调用，保证存量脏数据也能正确显示换行。
+export function normalizeKnowledgeText(input: string): string {
+  if (typeof input !== 'string') return '';
+  return input
+    // 先处理字面 \r\n（反斜杠 r + 反斜杠 n），再处理字面 \n，顺序不能反
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    // 真实 CRLF 与单独的 CR 统一成 LF
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // 连续 3 个以上换行压缩为 2 个，避免清洗后出现大片空白
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export async function invokeFn<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
   if (error) {
@@ -256,15 +272,22 @@ export const clinicianApi = {
     let q = supabase.from('knowledge_docs').select('*').order('created_at', { ascending: false }).limit(100);
     if (keyword) q = q.or(`title.ilike.%${keyword}%,content.ilike.%${keyword}%`);
     const { data } = await q;
-    return toArray(data);
+    // 读取端防御性归一化：存量数据可能仍含字面 \n，返回前统一还原为真实换行
+    return toArray<{ title?: string; content?: string }>(data).map((row) => ({
+      ...row,
+      title: normalizeKnowledgeText(row.title ?? ''),
+      content: normalizeKnowledgeText(row.content ?? ''),
+    }));
   },
 
   async saveKnowledge(doc: { id?: string; title: string; category: string; content: string }) {
+    const title = normalizeKnowledgeText(doc.title);
+    const content = normalizeKnowledgeText(doc.content);
     if (doc.id) {
-      await supabase.from('knowledge_docs').update({ title: doc.title, category: doc.category, content: doc.content }).eq('id', doc.id);
+      await supabase.from('knowledge_docs').update({ title, category: doc.category, content }).eq('id', doc.id);
       return doc.id;
     }
-    const { data } = await supabase.from('knowledge_docs').insert({ title: doc.title, category: doc.category, content: doc.content }).select('id').single();
+    const { data } = await supabase.from('knowledge_docs').insert({ title, category: doc.category, content }).select('id').single();
     return (data as { id: string } | null)?.id ?? '';
   },
 
