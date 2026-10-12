@@ -1,6 +1,7 @@
 // CareLoop 前端数据访问层：所有 Supabase 查询与 Edge Function 调用统一入口
 import { supabase } from '@/db/supabase';
 import type { CareRiskRaw } from '@/lib/carerisk';
+import type { ReminderAdaptRaw } from '@/lib/reminder-adapt';
 
 // ===== 通用工具 =====
 
@@ -361,4 +362,16 @@ export async function getCareRiskInputs(patientId: string, windowDays = 14): Pro
     symptoms: safe<{ level: string; created_at: string }>(symptoms.data),
     dischargeDate: (patient.data as { discharge_date?: string } | null)?.discharge_date ?? null,
   };
+}
+
+// ===== 机制③ 最小打扰自适应提醒：近 windowDays 天用药响应轨迹 =====
+// 复用现有 medication_logs（按 slot 时段），无需新增迁移；查询失败返回空结构由调用方降级。
+export async function getReminderAdaptInputs(patientId: string, windowDays = 14): Promise<ReminderAdaptRaw> {
+  const sinceDate = new Date(Date.now() - windowDays * 86400000).toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from('medication_logs')
+    .select('plan_id, slot, action, log_date')
+    .eq('patient_id', patientId)
+    .gte('log_date', sinceDate);
+  return { logs: toArray<{ slot: number; action: string; log_date: string }>(data) };
 }

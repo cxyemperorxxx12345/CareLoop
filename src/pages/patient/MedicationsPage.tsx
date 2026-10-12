@@ -1,8 +1,11 @@
 // 用药打卡：按 4 个时间槽分组，已服/稍后/跳过三种打卡，写 log 并同步提醒状态
+
+import { CheckCircle2, Pill } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Pill } from 'lucide-react';
 import { toast } from 'sonner';
+import { AdaptiveReminderCard } from '@/components/common/AdaptiveReminderCard';
+import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,10 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
-import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { supabase } from '@/db/supabase';
-import { getMyPatient, patientApi } from '@/lib/api';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { getMyPatient, getReminderAdaptInputs, patientApi } from '@/lib/api';
+import { computeReminderAdapt, type ReminderAdaptResult } from '@/lib/reminder-adapt';
 import { cn } from '@/lib/utils';
 
 const SLOT_LABELS = ['早 8:00', '中 12:00', '晚 18:00', '睡前 21:00'];
@@ -46,6 +49,8 @@ export function MedicationsPage() {
   const [patientId, setPatientId] = useState<string | null>(null);
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
+  // 机制③：本人用药响应轨迹推导的自适应提醒（失败不影响主功能）
+  const [adapt, setAdapt] = useState<ReminderAdaptResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [skipTarget, setSkipTarget] = useState<{ planId: string; slot: number; name: string } | null>(null);
   const [reason, setReason] = useState('');
@@ -65,6 +70,13 @@ export function MedicationsPage() {
         if (p) {
           setPatientId(p.id);
           await refresh(p.id);
+          // 机制③：拉取本人近 14 天用药响应，本地推导自适应提醒策略
+          try {
+            const raw = await getReminderAdaptInputs(p.id, 14);
+            setAdapt(computeReminderAdapt(raw, 14));
+          } catch {
+            setAdapt(null);
+          }
         }
         setErrorMsg('');
         setStatus('ready');
@@ -205,6 +217,9 @@ export function MedicationsPage() {
         </div>
         <RefreshButton onClick={() => void initLoad(true)} spinning={refreshing} />
       </div>
+
+      {/* 机制③：智能提醒已按本人习惯自适应（最小打扰） */}
+      {adapt && <AdaptiveReminderCard result={adapt} />}
 
       {/* 今日总进度 */}
       <Card className="rounded-2xl">

@@ -1,6 +1,6 @@
 // 今日概览（患者端首页）：问候 + 今日待办 + 用药进度 + 最近打卡 + 快捷入口
 
-import { BellRing, BookOpen, Bot, CalendarHeart, FileUp, HeartPulse, Stethoscope } from 'lucide-react';
+import { BellRing, Bot, CalendarHeart, FileUp, HeartPulse, Stethoscope } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -46,7 +46,6 @@ const QUICK_LINKS = [
   { to: '/patient/assistant', label: '智能问答', desc: '照护问题随时问', icon: Bot },
   { to: '/patient/documents', label: '上传资料', desc: '出院单拍照识别', icon: FileUp },
   { to: '/patient/followup', label: '随访计划', desc: '复查安排早知道', icon: CalendarHeart },
-  { to: '/patient/assistant', label: '康复宣教', desc: '饮食康复与用药须知', icon: BookOpen },
 ];
 
 function greeting(): string {

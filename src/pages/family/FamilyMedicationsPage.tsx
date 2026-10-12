@@ -1,7 +1,9 @@
 // 家属代打卡：复用患者端用药打卡交互，来源标记为家属（operator_type=family），回写患者端与医护端
-import { useCallback, useEffect, useState } from 'react';
+
 import { CheckCircle2, Pill, UserCheck } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { AdaptiveReminderCard } from '@/components/common/AdaptiveReminderCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +12,8 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
-import { getFamilyPatient } from '@/lib/api';
+import { getFamilyPatient, getReminderAdaptInputs } from '@/lib/api';
+import { computeReminderAdapt, type ReminderAdaptResult } from '@/lib/reminder-adapt';
 import { cn } from '@/lib/utils';
 
 const SLOT_LABELS = ['早 8:00', '中 12:00', '晚 18:00', '睡前 21:00'];
@@ -42,6 +45,8 @@ export function FamilyMedicationsPage() {
   const [patientName, setPatientName] = useState('');
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
+  // 机制③：照护对象用药响应轨迹推导的自适应提醒
+  const [adapt, setAdapt] = useState<ReminderAdaptResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [skipTarget, setSkipTarget] = useState<{ planId: string; slot: number; name: string } | null>(null);
   const [reason, setReason] = useState('');
@@ -67,6 +72,13 @@ export function FamilyMedicationsPage() {
           setPatientName(fp.patient.name);
           setFamilyName(fp.family_name);
           await refresh(fp.patient.id);
+          // 机制③：拉取照护对象近 14 天用药响应，本地推导自适应提醒
+          try {
+            const raw = await getReminderAdaptInputs(fp.patient.id, 14);
+            if (alive) setAdapt(computeReminderAdapt(raw, 14));
+          } catch {
+            if (alive) setAdapt(null);
+          }
         }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : '加载失败，请稍后重试');
@@ -212,6 +224,9 @@ export function FamilyMedicationsPage() {
           {todayLabel}，正在协助 {patientName}，操作将标注家属来源
         </p>
       </div>
+
+      {/* 机制③：智能提醒已按照护对象习惯自适应（最小打扰） */}
+      {adapt && <AdaptiveReminderCard result={adapt} />}
 
       <Card className="rounded-2xl">
         <CardContent className="space-y-2 p-4">
