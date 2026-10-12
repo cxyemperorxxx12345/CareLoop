@@ -1,10 +1,11 @@
 // 智能问答：对话式 UI + assistant-chat Edge Function SSE 流式输出
 
-import { AlertTriangle, Bot, PhoneCall, SendHorizonal, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Bot, Copy, PhoneCall, SendHorizonal, ShieldAlert } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Streamdown } from 'streamdown';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
 import { getMyPatient } from '@/lib/api';
@@ -58,18 +59,20 @@ export function AssistantPage() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [syncedAlertIds, setSyncedAlertIds] = useState<Record<number, boolean>>({});
-  const [patientInfo, setPatientInfo] = useState<{ id: string; name: string; department?: string } | null>(null);
+  const [patientInfo, setPatientInfo] = useState<{ id: string; name: string; department?: string; followup_phone?: string | null } | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
   const idRef = useRef(1);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     getMyPatient().then((p) => {
-      if (p) setPatientInfo(p as { id: string; name: string; department?: string });
+      if (p) setPatientInfo(p as { id: string; name: string; department?: string; followup_phone?: string | null });
     }).catch(() => undefined);
   }, []);
 
-  // 一键同步到医护端：在 alerts 表写入一条待办预警，并通知患者
+  // 一键同步到医护端：alerts 的 INSERT 策略仅限医护（RLS），患者端经 SECURITY DEFINER
+  // RPC 代为写入（内部校验调用者即本人，防越权上报，见迁移 00020）
   const syncToClinician = async (msgId: number, content: string) => {
     if (!patientInfo) {
       toast.error('未找到患者信息');
@@ -81,19 +84,36 @@ export function AssistantPage() {
     }
     try {
       const summary = content.slice(0, 120);
-      const { error } = await supabase.from('alerts').insert({
-        patient_id: patientInfo.id,
-        level: 'yellow',
-        source: 'symptom',
-        detail: `【患者咨询上报】${summary}…`,
-        status: 'open',
-        assignee_role: 'clinician',
-      });
-      if (error) throw new Error(error.message);
+      const { error } = await supabase.rpc('patient_escalate_alert', { p_summary: summary });
+      if (error) {
+        // 迁移 00020 未应用时函数不存在：给出可操作提示，而非裸错误码
+        if (/patient_escalate_alert/.test(error.message)) {
+          throw new Error('同步通道未启用：请在 Supabase SQL Editor 执行 ops/PENDING_apply_now.sql（含迁移 00020）');
+        }
+        throw new Error(error.message);
+      }
       setSyncedAlertIds((prev) => ({ ...prev, [msgId]: true }));
       toast.success('已一键同步到医护端预警中心，随访护士将尽快查看');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '同步失败，请稍后重试');
+    }
+  };
+
+  // 直拨随访科室：桌面端 tel: 无响应，阻止默认跳转并复制号码，保证"按了有反馈"
+  const followupPhone = patientInfo?.followup_phone || '010-88886666';
+  const copyPhone = async () => {
+    try {
+      await navigator.clipboard.writeText(followupPhone);
+      toast.success(`号码已复制：${followupPhone}`);
+    } catch {
+      toast.info(`随访科室电话：${followupPhone}`);
+    }
+  };
+  const handleDial = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    if (!isTouch) {
+      e.preventDefault();
+      void copyPhone();
     }
   };
 
@@ -258,13 +278,16 @@ export function AssistantPage() {
                               <ShieldAlert className="h-3.5 w-3.5" />
                               {syncedAlertIds[m.id] ? '已同步医护端' : '一键同步到医护端'}
                             </Button>
-                            <a
-                              href="tel:010-88886666"
-                              className="inline-flex items-center gap-1 h-8 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setContactOpen(true)}
+                              className="h-8 rounded-lg text-xs gap-1"
                             >
                               <PhoneCall className="h-3.5 w-3.5 text-primary" />
                               直拨随访科室
-                            </a>
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -309,6 +332,37 @@ export function AssistantPage() {
           </Button>
         </div>
       </div>
+
+      {/* 直拨随访科室：号码卡片 + 呼叫/复制（桌面端自动复制，移动端直接拨出） */}
+      <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+        <DialogContent className="max-w-[calc(100%-2rem)] rounded-2xl sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>联系随访科室</DialogTitle>
+            <DialogDescription>
+              {patientInfo?.department ?? '本院'} · 工作日 8:00–17:00
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="rounded-xl border border-border bg-muted/50 px-4 py-3 text-center">
+              <p className="sig-num text-xl font-bold tracking-wider text-foreground">{followupPhone}</p>
+              <p className="mt-1 text-xs text-muted-foreground">接通后请说明「愈见 CareLoop 出院随访」</p>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" className="flex-1 rounded-xl" asChild>
+                <a href={`tel:${followupPhone}`} onClick={handleDial}>
+                  <PhoneCall className="h-4 w-4" />
+                  立即呼叫
+                </a>
+              </Button>
+              <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => void copyPhone()}>
+                <Copy className="h-4 w-4" />
+                复制号码
+              </Button>
+            </div>
+            <p className="text-center text-xs text-muted-foreground">手机端点按「立即呼叫」可直接拨出；电脑端点击将自动复制号码</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
