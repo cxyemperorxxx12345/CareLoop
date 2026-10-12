@@ -1,5 +1,5 @@
 // 健康打卡：每日体征记录 + 异常即时校验 + 近14天趋势图
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, CalendarCheck2, TriangleAlert } from 'lucide-react';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -10,7 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { supabase } from '@/db/supabase';
 import { getMyPatient, patientApi } from '@/lib/api';
 
@@ -148,6 +151,8 @@ export function CheckinPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [chart, setChart] = useState<ChartPoint[]>([]);
+  const [chartStatus, setChartStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [chartRefreshing, setChartRefreshing] = useState(false);
 
   // 体征即时校验：体温 >37.3 或血压 ≥140/90 黄色提示；≥39 或 ≥180 红色危险
   const tempVal = num(temperature);
@@ -157,15 +162,27 @@ export function CheckinPage() {
   const dangerVital = (tempVal !== null && tempVal >= 39) || (sysVal !== null && sysVal >= 180);
 
   // 近 14 天趋势：按天聚合，同一天取最后一条
-  const loadChart = async (pid: string) => {
-    const rows = (await patientApi.checkinHistory(pid, 14)) as CheckinRow[];
-    const byDay = new Map<string, ChartPoint>();
-    for (const r of rows) {
-      const date = r.created_at.slice(5, 10);
-      byDay.set(date, { date, systolic: r.systolic, diastolic: r.diastolic, heart_rate: r.heart_rate });
-    }
-    setChart(Array.from(byDay.values()));
-  };
+  const loadChart = useCallback(
+    async (pid: string, isRefresh = false) => {
+      if (isRefresh) setChartRefreshing(true);
+      setChartStatus('loading');
+      try {
+        const rows = (await patientApi.checkinHistory(pid, 14)) as CheckinRow[];
+        const byDay = new Map<string, ChartPoint>();
+        for (const r of rows) {
+          const date = r.created_at.slice(5, 10);
+          byDay.set(date, { date, systolic: r.systolic, diastolic: r.diastolic, heart_rate: r.heart_rate });
+        }
+        setChart(Array.from(byDay.values()));
+        setChartStatus('ready');
+      } catch {
+        setChartStatus('error');
+      } finally {
+        if (isRefresh) setChartRefreshing(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -175,14 +192,20 @@ export function CheckinPage() {
         if (!alive) return;
         setPatient(p);
         if (p) await loadChart((p as { id: string }).id);
+        else setChartStatus('ready'); // 无档案：趋势区显示空态而非骨架
       } catch {
-        // 趋势加载失败不影响打卡
+        // 取患者档案失败不影响打卡表单；趋势区保留当前态
       }
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadChart]);
+
+  // 回到前台自动刷新趋势（节流 15s）
+  useRefetchOnFocus(() => {
+    if (patient) void loadChart(patient.id, true);
+  });
 
   const doSubmit = async () => {
     if (!patient || submitting) return;
@@ -329,14 +352,26 @@ export function CheckinPage() {
       {/* 近 14 天趋势 */}
       <Card className="rounded-2xl">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Activity className="h-4 w-4 shrink-0 text-primary" />
-            近 14 天趋势
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="flex min-w-0 flex-1 items-center gap-2 text-base">
+              <Activity className="h-4 w-4 shrink-0 text-primary" />
+              近 14 天趋势
+            </CardTitle>
+            {patient && <RefreshButton onClick={() => void loadChart(patient.id, true)} spinning={chartRefreshing} />}
+          </div>
         </CardHeader>
         <CardContent>
-          {chart.length === 0 ? (
-            <p className="text-sm text-muted-foreground">近 14 天还没有打卡记录，完成第一次打卡后，这里会显示您的体征变化趋势。</p>
+          {chartStatus === 'error' ? (
+            <ErrorState
+              message="趋势加载失败，不妨点右下角刷新试试"
+              onRetry={patient ? () => void loadChart(patient.id) : undefined}
+            />
+          ) : chart.length === 0 ? (
+            chartStatus === 'loading' ? (
+              <Skeleton className="h-60 w-full rounded-2xl" />
+            ) : (
+              <p className="text-sm text-muted-foreground">近 14 天还没有打卡记录，完成第一次打卡后，这里会显示您的体征变化趋势。</p>
+            )
           ) : (
             <div className="w-full min-w-0 overflow-hidden">
               <ResponsiveContainer width="100%" height={240}>

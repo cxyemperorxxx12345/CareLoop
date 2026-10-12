@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { supabase } from '@/db/supabase';
 import { getMyPatient, patientApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -38,7 +40,9 @@ function logBadgeCls(action: MedAction): string {
 }
 
 export function MedicationsPage() {
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [patientId, setPatientId] = useState<string | null>(null);
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
@@ -52,26 +56,34 @@ export function MedicationsPage() {
     setLogs(d.todayLogs as unknown as LogRow[]);
   }, []);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
+  // 完整加载：取患者档案 + 用药详情；isRefresh 时为手动/回前台刷新
+  const initLoad = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
       try {
         const p = await getMyPatient();
-        if (!alive) return;
         if (p) {
           setPatientId(p.id);
           await refresh(p.id);
         }
+        setErrorMsg('');
+        setStatus('ready');
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : '加载失败，请稍后重试');
+        setErrorMsg(e instanceof Error ? e.message : '加载失败，请稍后重试');
+        setStatus('error');
       } finally {
-        if (alive) setLoading(false);
+        if (isRefresh) setRefreshing(false);
       }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [refresh]);
+    },
+    [refresh],
+  );
+
+  useEffect(() => {
+    void initLoad();
+  }, [initLoad]);
+
+  // 回到前台自动刷新（节流 15s），让 cron 产生的提醒状态变化及时可见
+  useRefetchOnFocus(() => void initLoad(true));
 
   // 执行打卡：幂等 upsert log，taken/snoozed 同步终止或延后该槽提醒
   async function performLog(planId: string, slot: number, action: MedAction, logReason?: string) {
@@ -143,7 +155,7 @@ export function MedicationsPage() {
     if (plan) requestLog(plan, target.slot, 'skipped', text);
   }
 
-  if (loading) {
+  if (status === 'loading') {
     return (
       <div className="p-4 space-y-4">
         <div className="space-y-2 pt-2">
@@ -153,6 +165,14 @@ export function MedicationsPage() {
         <Skeleton className="h-20 w-full rounded-2xl" />
         <Skeleton className="h-40 w-full rounded-2xl" />
         <Skeleton className="h-40 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="p-4 pt-10">
+        <ErrorState message={errorMsg} onRetry={() => void initLoad()} />
       </div>
     );
   }
@@ -178,9 +198,12 @@ export function MedicationsPage() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="pt-2">
-        <h1 className="text-2xl font-bold">用药打卡</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{todayLabel} · 按时服药有助于康复</p>
+      <div className="flex items-start justify-between gap-2 pt-2">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">用药打卡</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{todayLabel} · 按时服药有助于康复</p>
+        </div>
+        <RefreshButton onClick={() => void initLoad(true)} spinning={refreshing} />
       </div>
 
       {/* 今日总进度 */}

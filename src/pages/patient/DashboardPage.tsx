@@ -1,5 +1,5 @@
 // 今日概览（患者端首页）：问候 + 今日待办 + 用药进度 + 最近打卡 + 快捷入口
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BellRing, BookOpen, Bot, CalendarHeart, FileUp, HeartPulse, LogOut, Stethoscope } from 'lucide-react';
 import { toast } from 'sonner';
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -66,7 +68,9 @@ function surgeryDays(dischargeDate: string): number {
 export function DashboardPage() {
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [patient, setPatient] = useState<{ id: string; name: string; discharge_date: string } | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -81,26 +85,31 @@ export function DashboardPage() {
     }
   };
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const p = await getMyPatient();
-        if (!alive) return;
-        setPatient(p);
-        if (p) setData((await patientApi.dashboard(p.id)) as unknown as DashboardData);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : '加载失败，请稍后重试');
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
+  // 拉取数据；isRefresh=true 时为手动/回前台刷新（只转按钮圈，不整体骨架）
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      const p = await getMyPatient();
+      setPatient(p);
+      if (p) setData((await patientApi.dashboard(p.id)) as unknown as DashboardData);
+      setErrorMsg('');
+      setStatus('ready');
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : '加载失败，请稍后重试');
+      setStatus('error');
+    } finally {
+      if (isRefresh) setRefreshing(false);
+    }
   }, []);
 
-  if (loading) {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // 回到前台自动刷新（节流 15s），让 cron 产生的新提醒/消息及时可见
+  useRefetchOnFocus(() => void load(true));
+
+  if (status === 'loading') {
     return (
       <div className="p-4 space-y-4">
         <div className="space-y-2 pt-2">
@@ -116,6 +125,14 @@ export function DashboardPage() {
             <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="p-4 pt-10">
+        <ErrorState message={errorMsg} onRetry={() => void load()} />
       </div>
     );
   }
@@ -185,15 +202,18 @@ export function DashboardPage() {
             术后第 {Math.max(1, surgeryDays(patient.discharge_date))} 天 · 出院第 {Math.max(1, dischargeDays(patient.discharge_date))} 天
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-12 w-12 shrink-0 text-muted-foreground hover:text-foreground"
-          onClick={handleSignOut}
-          aria-label="退出登录"
-        >
-          <LogOut className="h-5 w-5" />
-        </Button>
+        <div className="flex shrink-0 items-center">
+          <RefreshButton onClick={() => void load(true)} spinning={refreshing} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-12 w-12 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={handleSignOut}
+            aria-label="退出登录"
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {/* 下次用药（P1：最突出卡片） */}
