@@ -1,5 +1,5 @@
 // 症状自查与智能分诊：表单 + triage-symptom 三色结果卡 + 历史记录
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, PhoneCall, ShieldCheck, Stethoscope, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { fnApi, getMyPatient, patientApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -79,6 +80,7 @@ function relativeTime(iso: string): string {
 export function SymptomPage() {
   const [patient, setPatient] = useState<PatientRow | null>(null);
   const [history, setHistory] = useState<SymptomRow[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [complaint, setComplaint] = useState('');
   const [duration, setDuration] = useState<string>(DURATIONS[1]);
   const [severity, setSeverity] = useState(0);
@@ -88,6 +90,17 @@ export function SymptomPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<TriageResult | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const resultRef = useRef<HTMLDivElement | null>(null);
+
+  const loadHistory = useCallback(async (pid: string, isRefresh = false) => {
+    if (isRefresh) setHistoryStatus('loading');
+    try {
+      setHistory((await patientApi.symptomHistory(pid)) as SymptomRow[]);
+      setHistoryStatus('ready');
+    } catch {
+      setHistoryStatus('error');
+    }
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -96,15 +109,21 @@ export function SymptomPage() {
         const p = (await getMyPatient()) as PatientRow | null;
         if (!alive) return;
         setPatient(p);
-        if (p) setHistory((await patientApi.symptomHistory(p.id)) as SymptomRow[]);
+        if (p) await loadHistory(p.id);
+        else setHistoryStatus('ready'); // 无档案：历史区显示空态
       } catch {
-        // 静默失败，不阻塞表单使用
+        if (alive) setHistoryStatus('error');
       }
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadHistory]);
+
+  // 回到前台刷新历史（节流 15s）
+  useRefetchOnFocus(() => {
+    if (patient) void loadHistory(patient.id, true);
+  });
 
   // 体征即时校验：体温 >37.3 或收缩压 ≥140 黄色提示；≥39 或 ≥180 红色警示
   const tempVal = parseFloat(temperature);
@@ -133,7 +152,9 @@ export function SymptomPage() {
         systolic: hasSys ? sysVal : undefined,
       })) as TriageResult;
       setResult(triage);
-      if (patient) setHistory((await patientApi.symptomHistory(patient.id)) as SymptomRow[]);
+      if (patient) await loadHistory(patient.id);
+      // 结果卡在页面顶部、提交按钮在下方：新结果出现时平滑滚动到结果卡，避免飞出屏幕
+      requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '分诊失败，请稍后重试');
     } finally {
@@ -151,7 +172,7 @@ export function SymptomPage() {
 
       {/* 分诊结果三色卡 */}
       {result && resultMeta ? (
-        <Card className="rounded-2xl border-0">
+        <Card ref={resultRef} className="rounded-2xl border-0">
           <CardContent className={cn('space-y-3 rounded-2xl p-4', resultMeta.cls)}>
             <div className="flex items-center gap-2">
               <ResultIcon className="h-5 w-5 shrink-0" />
@@ -291,7 +312,16 @@ export function SymptomPage() {
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-2 pt-3">
-          {history.length === 0 ? (
+          {historyStatus === 'error' ? (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2.5">
+              <p className="text-sm text-muted-foreground">记录加载失败</p>
+              {patient && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => void loadHistory(patient.id)}>
+                  重试
+                </Button>
+              )}
+            </div>
+          ) : history.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无自查记录</p>
           ) : (
             history.map((h) => {

@@ -1,5 +1,5 @@
 // 消息中心：全部/未读筛选 + 一键已读 + 类型徽章 + 点击查看详情弹窗（标记已读）+ 支持按 link_path 跳转
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCheck, Clock, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -51,33 +53,40 @@ function relativeTime(iso: string): string {
 
 export function MessagesPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [list, setList] = useState<MsgRow[]>([]);
   const [unread, setUnread] = useState(0);
   const [tab, setTab] = useState('all');
   const [activeMsg, setActiveMsg] = useState<MsgRow | null>(null);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const p = await getMyPatient();
-        if (!alive || !p) return;
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      const p = await getMyPatient();
+      if (p) {
         const pid = (p as { id: string }).id;
         const [msgs, count] = await Promise.all([patientApi.messages(pid), patientApi.unreadCount(pid)]);
-        if (!alive) return;
         setList(msgs as MsgRow[]);
         setUnread(count);
-      } catch {
-        // 加载失败按空列表展示
-      } finally {
-        if (alive) setLoading(false);
       }
-    })();
-    return () => {
-      alive = false;
-    };
+      setErrorMsg('');
+      setStatus('ready');
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : '加载失败，请稍后重试');
+      setStatus('error');
+    } finally {
+      if (isRefresh) setRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // 回到前台自动刷新（节流 15s）：提醒扫描 cron 可能已产生新消息
+  useRefetchOnFocus(() => void load(true));
 
   // 点击整条：标记已读（乐观更新）并打开详情弹窗
   const open = (m: MsgRow) => {
@@ -91,7 +100,7 @@ export function MessagesPage() {
 
   const shown = tab === 'unread' ? list.filter((m) => !m.read) : list;
 
-  if (loading) {
+  if (status === 'loading') {
     return (
       <div className="space-y-3 p-4">
         <Skeleton className="h-7 w-28" />
@@ -103,6 +112,14 @@ export function MessagesPage() {
     );
   }
 
+  if (status === 'error') {
+    return (
+      <div className="p-4 pt-6">
+        <ErrorState message={errorMsg} onRetry={() => void load()} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-3 pt-2">
@@ -110,28 +127,31 @@ export function MessagesPage() {
           <h1 className="text-2xl font-bold truncate">消息中心</h1>
           {unread > 0 ? <Badge variant="secondary">未读 {unread} 条</Badge> : null}
         </div>
-        {unread > 0 ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="shrink-0 gap-1.5 text-muted-foreground"
-            onClick={async () => {
-              try {
-                const pid = (await getMyPatient())?.id;
-                if (!pid) return;
-                const n = await patientApi.markAllMessagesRead(pid);
-                setList((prev) => prev.map((x) => ({ ...x, read: true })));
-                setUnread(0);
-                toast.success(`已将 ${n} 条消息标记为已读`);
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : '操作失败，请稍后重试');
-              }
-            }}
-          >
-            <CheckCheck className="h-4 w-4" />
-            一键已读
-          </Button>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1">
+          <RefreshButton onClick={() => void load(true)} spinning={refreshing} />
+          {unread > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 gap-1.5 text-muted-foreground"
+              onClick={async () => {
+                try {
+                  const pid = (await getMyPatient())?.id;
+                  if (!pid) return;
+                  const n = await patientApi.markAllMessagesRead(pid);
+                  setList((prev) => prev.map((x) => ({ ...x, read: true })));
+                  setUnread(0);
+                  toast.success(`已将 ${n} 条消息标记为已读`);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : '操作失败，请稍后重试');
+                }
+              }}
+            >
+              <CheckCheck className="h-4 w-4" />
+              一键已读
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -154,10 +174,6 @@ export function MessagesPage() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {shown.map((m) => {
-            const meta = TYPE_META[m.type] ?? TYPE_META.reminder;
-            return (
-              <div className="space-y-2.5">
           {shown.map((m) => {
             const meta = TYPE_META[m.type] ?? TYPE_META.reminder;
             return (
@@ -204,9 +220,6 @@ export function MessagesPage() {
                 </p>
                 <p className="mt-1 line-clamp-2 text-[15px] text-muted-foreground">{m.content}</p>
               </div>
-            );
-          })}
-        </div>
             );
           })}
         </div>
