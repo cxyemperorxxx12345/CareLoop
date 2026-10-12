@@ -230,7 +230,12 @@ export const clinicianApi = {
     const [patient, plans, logs7, followups, checkins30, symptoms, alerts, documents, messages] = await Promise.all([
       supabase.from('patients').select('*').eq('id', patientId).maybeSingle(),
       supabase.from('medication_plans').select('*').eq('patient_id', patientId).eq('active', true),
-      supabase.from('medication_logs').select('*').eq('patient_id', patientId).gte('log_date', since7.slice(0, 10)),
+      // 家属代填来源（迁移 00005）：operator_type/operator_name 需下发到医护端读侧，避免代填与本人自测混淆
+      supabase
+        .from('medication_logs')
+        .select('plan_id, log_date, slot, action, operator_type, operator_name')
+        .eq('patient_id', patientId)
+        .gte('log_date', since7.slice(0, 10)),
       supabase.from('followup_items').select('*').eq('patient_id', patientId).order('due_date', { ascending: true }),
       supabase.from('checkins').select('*').eq('patient_id', patientId).gte('created_at', since30).order('created_at', { ascending: true }),
       supabase.from('symptom_checks').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(10),

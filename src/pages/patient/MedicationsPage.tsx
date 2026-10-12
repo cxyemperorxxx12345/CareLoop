@@ -147,6 +147,28 @@ export function MedicationsPage() {
   const initLoad = useCallback(
     async (isRefresh = false) => {
       if (isRefresh) setRefreshing(true);
+      const uid = uidRef.current;
+      // 断网：直接回读快照。不能只依赖下方 catch 兜底——supabase-js 断网时
+      // auth.getUser() 返回 error 而不抛错、PostgREST 查询 resolve {data:null,error}，
+      // 整个加载会「成功」返回空数据，快照兜底和离线标注都不会触发。
+      if (isOffline()) {
+        const snap = uid ? await readSnapshot<MedicationSnapshot>(`medications:${uid}`) : null;
+        if (snap?.data?.patientId) {
+          setPatientId(snap.data.patientId);
+          setPlans(snap.data.plans ?? []);
+          setLogs(snap.data.logs ?? []);
+          setAdapt(snap.data.adapt ?? null);
+          setSource('offline-snapshot');
+          setDataAt(snap.savedAt);
+          setErrorMsg('');
+          setStatus('ready');
+        } else {
+          setErrorMsg('当前网络不可用，请连接后重试');
+          setStatus('error');
+        }
+        if (isRefresh) setRefreshing(false);
+        return;
+      }
       try {
         const p = await getMyPatient();
         if (p) {

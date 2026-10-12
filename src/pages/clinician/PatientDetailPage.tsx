@@ -38,7 +38,8 @@ interface PatientRow {
   risk_level: string;
 }
 interface PlanRow { id: string; medicine_name: string; spec: string | null; dosage: string | null; frequency: string | null; slots: number[] | null; note: string | null; }
-interface LogRow { plan_id: string; log_date: string; slot: number; action: 'taken' | 'snoozed' | 'skipped'; }
+// operator_type/operator_name 来自迁移 00005：家属代打卡时写 'family' + 家属姓名，本人操作为 'patient'/null
+interface LogRow { plan_id: string; log_date: string; slot: number; action: 'taken' | 'snoozed' | 'skipped'; operator_type?: string | null; operator_name?: string | null; }
 interface FollowupRow { id: string; title: string; category: string; due_date: string; detail: string | null; done: boolean; }
 interface CheckinRow { id: string; created_at: string; systolic: number | null; diastolic: number | null; heart_rate: number | null; temperature: number | null; note?: string | null; }
 interface SymptomRow { id: string; chief_complaint: string; level: string; advice: string | null; created_at: string; }
@@ -115,6 +116,13 @@ function avg(nums: number[]): number | null {
   return nums.length > 0 ? Math.round((nums.reduce((s, n) => s + n, 0) / nums.length) * 10) / 10 : null;
 }
 
+// 家属代填弱标签：仅 operator_type='family' 时返回「家属代填 · 姓名」；本人操作或字段缺失返回 null（不出现 undefined）
+function familyTag(l: { operator_type?: string | null; operator_name?: string | null }): string | null {
+  if (l.operator_type !== 'family') return null;
+  const name = l.operator_name?.trim();
+  return name ? `家属代填 · ${name}` : '家属代填';
+}
+
 // ===== 时间轴：把打卡 / 预警 / 家属响应 / 随访 / 医护通知 拧成一条故事线 =====
 
 type TimelineSource = 'vital' | 'alert' | 'family' | 'followup' | 'clinician';
@@ -124,7 +132,7 @@ interface TimelineEvent {
   id: string;
   at: string; // ISO 时间戳或 YYYY-MM-DD
   source: TimelineSource;
-  tab: 'vitals' | 'events' | 'followup';
+  tab: 'vitals' | 'events' | 'followup' | 'meds';
   tone: TimelineTone;
   title: string; // 一句人话摘要
   extra?: string | null; // 次要补充：处置结论 / 留言
@@ -134,6 +142,7 @@ interface TimelineEvent {
   abnormal?: boolean;
   planned?: boolean; // 未到期的计划节点
   repeated?: number; // 同一分钟同类事件合并条数
+  weakLabel?: string; // 弱化补充标签（如「家属代填 · 姓名」），不抢异常高亮视觉权重
 }
 
 const TIMELINE_SOURCE_META: Record<TimelineSource, { label: string; cls: string }> = {
@@ -282,6 +291,23 @@ function buildTimeline(d: Detail): { past: TimelineEvent[]; upcoming: TimelineEv
     evs.push(ev);
   }
 
+  // ⑥ 家属代填用药：logs7 中 operator_type='family' 的记录入线并带弱标签；本人操作用药见「用药」页签矩阵，不入线
+  const planName = new Map(d.plans.map((p) => [p.id, p.medicine_name]));
+  for (const l of d.logs7) {
+    const tag = familyTag(l);
+    if (!tag) continue;
+    evs.push({
+      id: `med-${l.plan_id}-${l.log_date}-${l.slot}`,
+      at: l.log_date,
+      source: 'family',
+      tab: 'meds',
+      tone: 'green',
+      title: `${planName.get(l.plan_id) ?? '用药'} ${ACTION_TEXT[l.action] ?? l.action}`,
+      extra: SLOT_LABELS[l.slot] ?? `槽 ${l.slot}`,
+      weakLabel: tag,
+    });
+  }
+
   const now = Date.now();
   return {
     past: evs.filter((e) => evMs(e) <= now).sort((x, y) => evMs(y) - evMs(x)),
@@ -297,7 +323,7 @@ function TimelineNode({
 }: {
   e: TimelineEvent;
   last: boolean;
-  onJump: (tab: 'vitals' | 'events' | 'followup') => void;
+  onJump: (tab: 'vitals' | 'events' | 'followup' | 'meds') => void;
 }) {
   const meta = TIMELINE_SOURCE_META[e.source];
   return (
@@ -328,6 +354,11 @@ function TimelineNode({
           {e.statusLabel && (
             <Badge variant="secondary" className="shrink-0">
               {e.statusLabel}
+            </Badge>
+          )}
+          {e.weakLabel && (
+            <Badge variant="secondary" className="shrink-0 font-normal">
+              {e.weakLabel}
             </Badge>
           )}
           {e.repeated && <span className="text-xs text-muted-foreground sig-num">同类 ×{e.repeated}</span>}
@@ -408,12 +439,24 @@ export function PatientDetailPage() {
     return () => { alive = false; };
   }, [id]);
 
-  // 近 7 天打卡索引：plan|date|slot → action
+  // 近 7 天打卡索引：plan|date|slot → 整条日志（含家属代填来源）
   const logMap = useMemo(() => {
-    const map = new Map<string, LogRow['action']>();
-    data?.logs7.forEach((l) => map.set(`${l.plan_id}|${l.log_date}|${l.slot}`, l.action));
+    const map = new Map<string, LogRow>();
+    data?.logs7.forEach((l) => map.set(`${l.plan_id}|${l.log_date}|${l.slot}`, l));
     return map;
   }, [data]);
+
+  // 家属代填记录（弱标签数据源）：仅 operator_type='family'，按日期倒序、时段正序
+  const familyLogs7 = useMemo(
+    () =>
+      (data?.logs7 ?? [])
+        .filter((l) => familyTag(l) !== null)
+        .sort((a, b) => b.log_date.localeCompare(a.log_date) || a.slot - b.slot),
+    [data],
+  );
+
+  // 用药方案名索引：plan_id → 药名（代填记录与时间轴节点展示用）
+  const planNameMap = useMemo(() => new Map((data?.plans ?? []).map((p) => [p.id, p.medicine_name])), [data]);
 
   // 体征图表数据与统计
   const chartData = useMemo(
@@ -626,7 +669,7 @@ export function PatientDetailPage() {
                   <ul className="space-y-1.5 text-xs text-muted-foreground">
                     <li>· 体征：本人上报的血压 / 心率 / 体温，偏离即高亮</li>
                     <li>· 预警：系统按规则触发，红色最急</li>
-                    <li>· 家属：家属代处置后链路终止或升级</li>
+                    <li>· 家属：代打卡 / 代处置后链路终止或升级</li>
                     <li>· 医护：升级通知与处理回执已送达本人</li>
                     <li>· 随访：出院后的复诊与康复安排</li>
                   </ul>
@@ -775,12 +818,15 @@ export function PatientDetailPage() {
                                 <TableCell key={slot} className="whitespace-nowrap">
                                   <div className="flex items-center gap-1">
                                     {days7.map((d) => {
-                                      const action = logMap.get(`${plan.id}|${d}|${slot}`);
+                                      const log = logMap.get(`${plan.id}|${d}|${slot}`);
+                                      const action = log?.action;
+                                      const tag = log ? familyTag(log) : null;
+                                      const actionText = action ? ACTION_TEXT[action] : '未打卡';
                                       return (
                                         <span
                                           key={d}
-                                          title={`${d.slice(5)} ${action ? ACTION_TEXT[action] : '未打卡'}`}
-                                          className={cn('inline-block h-2.5 w-2.5 rounded-full', DOT_CLS[action ?? 'none'])}
+                                          title={tag ? `${d.slice(5)} ${actionText} · ${tag}` : `${d.slice(5)} ${actionText}`}
+                                          className={cn('inline-block h-2.5 w-2.5 rounded-full', DOT_CLS[action ?? 'none'], tag && 'border-dashed')}
                                         />
                                       );
                                     })}
@@ -796,6 +842,30 @@ export function PatientDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* 家属代填记录：弱标签标注来源，仅在确有代填记录时出现（无代填时不渲染，避免空区块） */}
+            {familyLogs7.length > 0 && (
+              <Card className="rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="text-base">家属代填记录</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {familyLogs7.map((l) => (
+                    <div
+                      key={`${l.plan_id}|${l.log_date}|${l.slot}`}
+                      className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-3"
+                    >
+                      <span className="text-xs text-muted-foreground sig-num shrink-0 w-12">{l.log_date.slice(5)}</span>
+                      <span className="text-sm font-medium">{planNameMap.get(l.plan_id) ?? '用药'}</span>
+                      <span className="text-xs text-muted-foreground">{SLOT_LABELS[l.slot] ?? `槽 ${l.slot}`}</span>
+                      <Badge variant="secondary" className="shrink-0">{ACTION_TEXT[l.action] ?? l.action}</Badge>
+                      <Badge variant="secondary" className="ml-auto shrink-0 font-normal">{familyTag(l)}</Badge>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">家属代填由家属代为操作，数值来源不等于患者本人自测，临床判断时请留意</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 

@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/db/supabase';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
-import { readSnapshot, saveSnapshot } from '@/lib/offline-cache';
+import { isOffline, readSnapshot, saveSnapshot } from '@/lib/offline-cache';
 import { cn } from '@/lib/utils';
 
 // 时间槽常量
@@ -109,10 +109,29 @@ export function DashboardPage() {
   };
 
   // 拉取数据；isRefresh=true 时为手动/回前台刷新（只转按钮圈，不整体骨架）
-  // 联网成功 → 写本地快照；断网失败 → 回读快照并标注离线，无快照才报错
+  // 联网成功 → 写本地快照；断网 → 回读快照并标注离线，无快照才报错
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     const uid = uidRef.current;
+    // 断网：直接回读快照。不能只依赖下方 catch 兜底——supabase-js 断网时
+    // auth.getUser() 返回 error 而不抛错、PostgREST 查询 resolve {data:null,error}，
+    // 整个 load 会「成功」返回空数据，快照兜底和离线标注都不会触发。
+    if (isOffline()) {
+      const snap = uid ? await readSnapshot<DashboardSnapshot>(`dashboard:${uid}`) : null;
+      if (snap?.data.patient) {
+        setPatient(snap.data.patient);
+        setData(snap.data.data);
+        setSource('offline-snapshot');
+        setDataAt(snap.savedAt);
+        setErrorMsg('');
+        setStatus('ready');
+      } else {
+        setErrorMsg('当前网络不可用，请连接后重试');
+        setStatus('error');
+      }
+      if (isRefresh) setRefreshing(false);
+      return;
+    }
     try {
       const p = (await getMyPatient()) as PatientLite | null;
       const d = p ? ((await patientApi.dashboard(p.id)) as unknown as DashboardData) : null;

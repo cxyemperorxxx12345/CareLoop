@@ -186,10 +186,31 @@ export function FamilyMedicationsPage() {
     return { plans: nextPlans, logs: nextLogs };
   }, []);
 
-  // 完整加载：取绑定患者 + 用药详情；成功后写快照，断网失败则回读快照并标注离线
+  // 完整加载：取绑定患者 + 用药详情；成功后写快照，断网则回读快照并标注离线
   const initLoad = useCallback(async () => {
     const uid = uidRef.current;
     setLoading(true);
+    // 断网：直接回读快照。不能只依赖下方 catch 兜底——supabase-js 断网时
+    // auth.getUser() 返回 error 而不抛错、PostgREST 查询 resolve {data:null,error}，
+    // 整个加载会「成功」返回空数据，快照兜底和离线标注都不会触发。
+    if (isOffline()) {
+      const snap = uid ? await readSnapshot<FamilyMedicationSnapshot>(`family-medications:${uid}`) : null;
+      if (snap?.data?.pid) {
+        setPid(snap.data.pid);
+        setPatientName(snap.data.patientName ?? '');
+        setPatientGender(snap.data.patientGender ?? null);
+        setFamilyName(snap.data.familyName ?? '家属');
+        setPlans(snap.data.plans ?? []);
+        setLogs(snap.data.logs ?? []);
+        setAdapt(snap.data.adapt ?? null);
+        setSource('offline-snapshot');
+        setDataAt(snap.savedAt);
+      } else {
+        toast.error('当前网络不可用，请连接后重试');
+      }
+      setLoading(false);
+      return;
+    }
     try {
       const fp = await getFamilyPatient();
       if (fp) {
