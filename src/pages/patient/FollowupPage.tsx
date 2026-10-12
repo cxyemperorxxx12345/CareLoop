@@ -1,19 +1,23 @@
 // 随访时间轴：按 due_date 升序的垂直时间线，支持乐观更新完成状态
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarHeart, Check } from 'lucide-react';
+import { CalendarHeart, Check, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { VisitPrepSheet } from '@/components/patient/VisitPrepSheet';
 import { supabase } from '@/db/supabase';
 import { getMyPatient, patientApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // 与数据库真实列名一致的本地行类型
 interface FollowupRow { id: string; title: string; category: string; due_date: string; detail: string | null; done: boolean; }
+
+// 就诊准备清单需要的患者档案字段（getMyPatient 返回整行，这里只取用到的）
+interface PatientProfile { id: string; name?: string | null; department?: string | null; diagnosis?: string | null; }
 
 const CATEGORY_LABELS: Record<string, string> = {
   review: '复查',
@@ -38,16 +42,20 @@ function fmtDue(d: string, todayYear: string): string {
 export function FollowupPage() {
   const [loading, setLoading] = useState(true);
   const [patientId, setPatientId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [items, setItems] = useState<FollowupRow[]>([]);
+  // 正在生成就诊准备清单的随访项（未完成才可生成）
+  const [prepItem, setPrepItem] = useState<FollowupRow | null>(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const p = await getMyPatient();
+        const p = (await getMyPatient()) as PatientProfile | null;
         if (!alive) return;
         if (p) {
           setPatientId(p.id);
+          setProfile(p);
           const rows = (await patientApi.followupItems(p.id)) as unknown as FollowupRow[];
           if (alive) setItems(rows);
         }
@@ -171,6 +179,17 @@ export function FollowupPage() {
                           {item.title}
                         </p>
                         {item.detail && <p className="text-sm text-muted-foreground">{item.detail}</p>}
+                        {/* 就诊准备清单：未完成（含已逾期）的随访都可生成，打印带去医院 */}
+                        {!item.done && (
+                          <button
+                            type="button"
+                            onClick={() => setPrepItem(item)}
+                            className="mt-2 inline-flex min-h-[2.5rem] items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/5 px-3 text-[13px] font-medium text-primary"
+                          >
+                            <ClipboardList className="h-4 w-4" />
+                            生成就诊准备清单
+                          </button>
+                        )}
                       </div>
                       <label
                         className="flex h-11 w-11 shrink-0 items-center justify-center"
@@ -190,6 +209,15 @@ export function FollowupPage() {
           </div>
         </Card>
       )}
+
+      {prepItem && profile ? (
+        <VisitPrepSheet
+          patient={profile}
+          item={prepItem}
+          categoryText={categoryLabel(prepItem.category)}
+          onClose={() => setPrepItem(null)}
+        />
+      ) : null}
     </div>
   );
 }

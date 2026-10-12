@@ -1,5 +1,5 @@
 // 消息中心：全部/未读筛选 + 一键已读 + 类型徽章 + 点击查看详情弹窗（标记已读）+ 支持按 link_path 跳转
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCheck, Clock, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
+import { SpeakButton } from '@/components/common/SpeakButton';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,60 @@ interface MsgRow {
   link_path: string | null;
   read: boolean;
   created_at: string;
+}
+
+interface MsgGroup {
+  key: string;
+  sourceKey: string;
+  messages: MsgRow[];
+  latestAt: number;
+  hasUnread: boolean;
+  isReminder: boolean;
+}
+
+const REMINDER_TYPES = new Set(['reminder', 'escalation']);
+const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function groupMessages(messages: MsgRow[]): MsgGroup[] {
+  const byNewest = [...messages].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+  const groups: MsgGroup[] = [];
+
+  for (const message of byNewest) {
+    const createdAt = new Date(message.created_at).getTime();
+    const isReminder = REMINDER_TYPES.has(message.type);
+    const sourceKey = `${message.type}\u0000${message.title}`;
+    const existing = isReminder
+      ? groups.find(
+          (group) =>
+            group.isReminder &&
+            group.sourceKey === sourceKey &&
+            group.latestAt - createdAt <= DEDUP_WINDOW_MS,
+        )
+      : undefined;
+
+    if (existing) {
+      existing.messages.push(message);
+      existing.hasUnread ||= !message.read;
+      continue;
+    }
+
+    groups.push({
+      key: `${sourceKey}\u0000${message.id}`,
+      sourceKey,
+      messages: [message],
+      latestAt: createdAt,
+      hasUnread: !message.read,
+      isReminder,
+    });
+  }
+
+  return groups.sort((a, b) => {
+    if (a.hasUnread !== b.hasUnread) return a.hasUnread ? -1 : 1;
+    if (a.isReminder !== b.isReminder) return a.isReminder ? 1 : -1;
+    return b.latestAt - a.latestAt;
+  });
 }
 
 // 消息类型徽章配色（语义 token）
@@ -51,6 +106,80 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 }
 
+function MessageCard({
+  message,
+  subdued = false,
+  hasUnread = !message.read,
+  onOpen,
+  onMarkRead,
+  children,
+}: {
+  message: MsgRow;
+  subdued?: boolean;
+  hasUnread?: boolean;
+  onOpen: (message: MsgRow) => void;
+  onMarkRead: (message: MsgRow) => void;
+  children?: ReactNode;
+}) {
+  const meta = TYPE_META[message.type] ?? TYPE_META.reminder;
+
+  return (
+    <div
+      data-message-card
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(message)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(message);
+        }
+      }}
+      className={cn(
+        'w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-shadow hover:shadow-card',
+        subdued
+          ? hasUnread
+            ? 'border-primary/30 bg-primary/[0.03]'
+            : 'border-border/70 bg-muted/30'
+          : hasUnread
+            ? 'border-primary/40 bg-primary/5'
+            : 'border-border bg-card',
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className={cn('shrink-0', meta.cls)}>
+          {meta.label}
+        </Badge>
+        <span className="min-w-0 flex-1" />
+        {!message.read ? (
+          <button
+            type="button"
+            className="shrink-0 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMarkRead(message);
+            }}
+          >
+            标记已读
+          </button>
+        ) : null}
+        <span className="shrink-0 text-xs text-muted-foreground">{relativeTime(message.created_at)}</span>
+      </div>
+      <p className="mt-1.5 flex items-center gap-1.5">
+        {hasUnread ? <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" /> : null}
+        <span className={cn('min-w-0 flex-1 truncate text-[15px] font-bold', subdued && 'text-foreground/80')}>
+          {message.title}
+        </span>
+      </p>
+      <div className="mt-1 flex items-start gap-2">
+        <p className="min-w-0 flex-1 line-clamp-2 text-[15px] text-muted-foreground">{message.content}</p>
+        <SpeakButton text={message.content} label="这条消息" className="mt-1" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function MessagesPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
@@ -60,6 +189,7 @@ export function MessagesPage() {
   const [unread, setUnread] = useState(0);
   const [tab, setTab] = useState('all');
   const [activeMsg, setActiveMsg] = useState<MsgRow | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -88,17 +218,23 @@ export function MessagesPage() {
   // 回到前台自动刷新（节流 15s）：提醒扫描 cron 可能已产生新消息
   useRefetchOnFocus(() => void load(true));
 
+  const markRead = (m: MsgRow) => {
+    if (m.read) return;
+    setList((prev) => prev.map((x) => (x.id === m.id ? { ...x, read: true } : x)));
+    setUnread((n) => Math.max(0, n - 1));
+    patientApi.markMessageRead(m.id).catch(() => undefined);
+  };
+
   // 点击整条：标记已读（乐观更新）并打开详情弹窗
   const open = (m: MsgRow) => {
-    if (!m.read) {
-      setList((prev) => prev.map((x) => (x.id === m.id ? { ...x, read: true } : x)));
-      setUnread((n) => Math.max(0, n - 1));
-      patientApi.markMessageRead(m.id).catch(() => undefined);
-    }
+    markRead(m);
     setActiveMsg(m);
   };
 
-  const shown = tab === 'unread' ? list.filter((m) => !m.read) : list;
+  const shown = useMemo(() => {
+    const filtered = tab === 'unread' ? list.filter((m) => !m.read) : list;
+    return groupMessages(filtered);
+  }, [list, tab]);
 
   if (status === 'loading') {
     return (
@@ -174,51 +310,58 @@ export function MessagesPage() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {shown.map((m) => {
-            const meta = TYPE_META[m.type] ?? TYPE_META.reminder;
+          {shown.map((group) => {
+            const latest = group.messages[0];
+            const duplicateCount = group.messages.length - 1;
+            const expanded = expandedGroups.has(group.key);
+
             return (
-              <div
-                key={m.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => open(m)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    open(m);
-                  }
-                }}
-                className={cn(
-                  'w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-shadow hover:shadow-card',
-                  m.read ? 'border-border bg-card' : 'border-primary/40 bg-primary/5',
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className={cn('shrink-0', meta.cls)}>
-                    {meta.label}
-                  </Badge>
-                  <span className="min-w-0 flex-1" />
-                  {!m.read ? (
-                    <button
-                      type="button"
-                      className="shrink-0 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setList((prev) => prev.map((x) => (x.id === m.id ? { ...x, read: true } : x)));
-                        setUnread((n) => Math.max(0, n - 1));
-                        patientApi.markMessageRead(m.id).catch(() => undefined);
-                      }}
-                    >
-                      标记已读
-                    </button>
+              <div key={group.key} className="space-y-2">
+                <MessageCard
+                  message={latest}
+                  subdued={duplicateCount > 0}
+                  hasUnread={group.hasUnread}
+                  onOpen={open}
+                  onMarkRead={markRead}
+                >
+                  {duplicateCount > 0 ? (
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-2.5">
+                      <span className="text-sm text-muted-foreground">另有 {duplicateCount} 条相同提醒</span>
+                      <button
+                        type="button"
+                        aria-expanded={expanded}
+                        className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedGroups((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(group.key)) next.delete(group.key);
+                            else next.add(group.key);
+                            return next;
+                          });
+                        }}
+                      >
+                        {expanded ? '收起重复提醒' : `展开查看全部（共 ${group.messages.length} 条）`}
+                      </button>
+                    </div>
                   ) : null}
-                  <span className="shrink-0 text-xs text-muted-foreground">{relativeTime(m.created_at)}</span>
-                </div>
-                <p className="mt-1.5 flex items-center gap-1.5">
-                  {!m.read ? <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" /> : null}
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{m.title}</span>
-                </p>
-                <p className="mt-1 line-clamp-2 text-[15px] text-muted-foreground">{m.content}</p>
+                </MessageCard>
+
+                {expanded ? (
+                  <div className="ml-3 space-y-2 border-l-2 border-border/60 pl-3" aria-label={`${latest.title}的重复提醒`}>
+                    <p className="px-1 text-sm font-medium text-muted-foreground">以下是其余 {duplicateCount} 条提醒</p>
+                    {group.messages.slice(1).map((message) => (
+                      <MessageCard
+                        key={message.id}
+                        message={message}
+                        subdued
+                        onOpen={open}
+                        onMarkRead={markRead}
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -251,6 +394,15 @@ export function MessagesPage() {
 
               <div className="rounded-xl bg-muted/50 p-4 text-[15px] leading-relaxed text-foreground whitespace-pre-wrap">
                 {activeMsg.content}
+              </div>
+
+              <div className="flex justify-end">
+                <SpeakButton
+                  key={activeMsg.id}
+                  text={`${activeMsg.title}。${activeMsg.content}`}
+                  label="这条消息"
+                  size="md"
+                />
               </div>
 
               <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">

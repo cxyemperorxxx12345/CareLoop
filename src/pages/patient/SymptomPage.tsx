@@ -12,8 +12,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
+import { SpeakButton } from '@/components/common/SpeakButton';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { fnApi, getMyPatient, patientApi } from '@/lib/api';
+import { type BaselineMetric, loadBaselines } from '@/lib/baseline';
 import { cn } from '@/lib/utils';
 
 interface PatientRow {
@@ -100,6 +102,8 @@ export function SymptomPage() {
   const [systolic, setSystolic] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<TriageResult | null>(null);
+  // 个人基线兜底：分诊 Edge Function 取不到 daily_baseline（表未应用迁移）时，用本人打卡现算补上
+  const [fallbackBaseline, setFallbackBaseline] = useState<BaselineMetric[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
@@ -121,8 +125,11 @@ export function SymptomPage() {
         const p = (await getMyPatient()) as PatientRow | null;
         if (!alive) return;
         setPatient(p);
-        if (p) await loadHistory(p.id);
-        else setHistoryStatus('ready'); // 无档案：历史区显示空态
+        if (p) {
+          await loadHistory(p.id);
+          // 预取个人基线（表优先，表无数据时现算），样本不足返回空数组——结果卡不显示该区块
+          void loadBaselines(p.id).then(setFallbackBaseline).catch(() => setFallbackBaseline([]));
+        } else setHistoryStatus('ready'); // 无档案：历史区显示空态
       } catch {
         if (alive) setHistoryStatus('error');
       }
@@ -147,6 +154,11 @@ export function SymptomPage() {
 
   const resultMeta = result ? (RESULT_META[result.level] ?? RESULT_META.green) : null;
   const ResultIcon = resultMeta?.icon ?? ShieldCheck;
+  // 分诊返回基线（来自 daily_baseline 表）优先；取不到则用本地现算兜底，并据此标注来源
+  const baselineValues: Pick<BaselineMetric, 'metric' | 'median' | 'bandLow' | 'bandHigh'>[] =
+    result?.baseline?.available ? result.baseline.metrics : fallbackBaseline;
+  const baselineSource: BaselineMetric['source'] | null =
+    result?.baseline?.available ? 'table' : (fallbackBaseline[0]?.source ?? null);
 
   const submit = async () => {
     if (!complaint.trim()) {
@@ -236,22 +248,36 @@ export function SymptomPage() {
             </div>
             <p className="text-sm font-medium">{resultMeta.desc}</p>
             <div className="space-y-2 rounded-xl bg-background/80 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">给您的建议</p>
+                <SpeakButton
+                  key={result.advice}
+                  text={`${resultMeta.title}。${resultMeta.desc}${result.advice}`}
+                  label="这段建议"
+                  size="md"
+                />
+              </div>
               <p className="text-sm whitespace-pre-wrap text-foreground">{result.advice}</p>
               {result.evidence ? (
                 <p className="text-xs whitespace-pre-wrap text-muted-foreground">参考依据：{result.evidence}</p>
               ) : null}
               {/* 机制①：对照个人基线（近 7 天滚动中位数 + 偏离带）*/}
-              {result.baseline?.available ? (
+              {baselineValues.length > 0 ? (
                 <div className="space-y-1.5 border-t border-border pt-2">
                   <p className="text-xs font-medium">对照您的个人基线（近 7 天）</p>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs sig-num">
-                    {result.baseline.metrics.map((b) => (
+                    {baselineValues.map((b) => (
                       <span key={b.metric}>
                         {METRIC_LABEL[b.metric] ?? b.metric}：<b>{b.median}</b>（带 {b.bandLow}–{b.bandHigh}）
                       </span>
                     ))}
                   </div>
                   <p className="text-[11px] text-muted-foreground">我们不盯达标线，我们盯偏离——分级参考您自己的历史轨道。</p>
+                  {baselineSource === 'local' ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      基于近 {fallbackBaseline[0]?.sampleDays ?? 0} 天本人记录现算（个人基线尚未生成）
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>

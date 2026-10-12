@@ -1,20 +1,24 @@
 // 今日概览（患者端首页）：问候 + 今日待办 + 用药进度 + 最近打卡 + 快捷入口
 
 import { BellRing, Bot, CalendarHeart, FileUp, HeartPulse, Stethoscope } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
 import { FontScaleSwitch } from '@/components/common/FontScaleSwitch';
+import { OfflineNotice, OfflineTag } from '@/components/common/OfflineNotice';
 import { SignOutButton } from '@/components/common/SignOutButton';
+import { FirstRunGuide, isOnboardingDone } from '@/components/patient/FirstRunGuide';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/db/supabase';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
+import { readSnapshot, saveSnapshot } from '@/lib/offline-cache';
 import { cn } from '@/lib/utils';
 
 // 时间槽常量
@@ -32,6 +36,14 @@ interface DashboardData {
   latestCheckin: CheckinRow[] | CheckinRow | null;
   todayReminders: ReminderRow[];
 }
+
+// 离线快照内容：患者档案 + dashboard 数据，断网时整包回读
+interface PatientLite {
+  id: string;
+  name: string;
+  discharge_date: string;
+}
+type DashboardSnapshot = { patient: PatientLite | null; data: DashboardData | null };
 
 const REMINDER_STATUS: Record<string, { label: string; cls: string }> = {
   pending: { label: '待提醒', cls: 'bg-muted text-muted-foreground' },
@@ -68,13 +80,22 @@ function surgeryDays(dischargeDate: string): number {
 }
 
 export function DashboardPage() {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [patient, setPatient] = useState<{ id: string; name: string; discharge_date: string } | null>(null);
+  const [patient, setPatient] = useState<PatientLite | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
+  // 数据来源：network = 实时拉取成功；offline-snapshot = 断网回读本地快照（界面必须标注）
+  const [source, setSource] = useState<'network' | 'offline-snapshot'>('network');
+  const [dataAt, setDataAt] = useState<number>(Date.now());
+  // 首次使用引导：null = 消息条数未知（查询失败），此时保守不展示引导
+  const [messageCount, setMessageCount] = useState<number | null>(null);
+  const [guideDismissed, setGuideDismissed] = useState(false);
+  // 快照按登录账号隔离（断网时取不到 patient_id，用 uid 兜底）
+  const uidRef = useRef<string | null>(user?.id ?? null);
+  uidRef.current = user?.id ?? null;
 
   // 退出登录并回到初始落地页
   const handleSignOut = async () => {
@@ -88,17 +109,33 @@ export function DashboardPage() {
   };
 
   // 拉取数据；isRefresh=true 时为手动/回前台刷新（只转按钮圈，不整体骨架）
+  // 联网成功 → 写本地快照；断网失败 → 回读快照并标注离线，无快照才报错
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
+    const uid = uidRef.current;
     try {
-      const p = await getMyPatient();
+      const p = (await getMyPatient()) as PatientLite | null;
+      const d = p ? ((await patientApi.dashboard(p.id)) as unknown as DashboardData) : null;
       setPatient(p);
-      if (p) setData((await patientApi.dashboard(p.id)) as unknown as DashboardData);
+      setData(d);
+      setSource('network');
+      setDataAt(Date.now());
+      if (uid) void saveSnapshot<DashboardSnapshot>(`dashboard:${uid}`, { patient: p, data: d });
       setErrorMsg('');
       setStatus('ready');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : '加载失败，请稍后重试');
-      setStatus('error');
+      const snap = uid ? await readSnapshot<DashboardSnapshot>(`dashboard:${uid}`) : null;
+      if (snap) {
+        setPatient(snap.data.patient);
+        setData(snap.data.data);
+        setSource('offline-snapshot');
+        setDataAt(snap.savedAt);
+        setErrorMsg('');
+        setStatus('ready');
+      } else {
+        setErrorMsg(e instanceof Error ? e.message : '加载失败，请稍后重试');
+        setStatus('error');
+      }
     } finally {
       if (isRefresh) setRefreshing(false);
     }
@@ -110,6 +147,35 @@ export function DashboardPage() {
 
   // 回到前台自动刷新（节流 15s），让 cron 产生的新提醒/消息及时可见
   useRefetchOnFocus(() => void load(true));
+
+  // 网络恢复后自动拉新，替代离线快照
+  useEffect(() => {
+    const onOnline = () => void load(true);
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [load]);
+
+  // 首次使用引导判定用：只要知道「有没有消息」，用轻量计数查询（只读，不写任何数据）
+  useEffect(() => {
+    const pid = patient?.id;
+    if (!pid) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const { count, error } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('patient_id', pid)
+          .limit(1);
+        if (alive) setMessageCount(error ? null : (count ?? 0));
+      } catch {
+        if (alive) setMessageCount(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [patient?.id]);
 
   if (status === 'loading') {
     return (
@@ -189,6 +255,12 @@ export function DashboardPage() {
   const latestRaw = data?.latestCheckin;
   const latest = Array.isArray(latestRaw) ? latestRaw[0] : latestRaw;
   const todayLabel = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+  // 首次使用引导：近期无打卡 + 无用药记录 + 无消息，三者都空才显示；
+  // 消息条数未知时按「有数据」处理，确保不会误伤有数据的患者
+  const noCheckin = !latest;
+  const noMedication = plans.length === 0 && (data?.todayLogs ?? []).length === 0;
+  const showGuide =
+    !guideDismissed && noCheckin && noMedication && messageCount === 0 && !isOnboardingDone(patient.id);
 
   return (
     <div className="p-4 space-y-4">
@@ -210,8 +282,16 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* 断网兜底提示：数据来自本地快照时必须显式标注，避免误读为实时数据 */}
+      {source === 'offline-snapshot' && (
+        <OfflineNotice savedAt={dataAt} retrying={refreshing} onRetry={() => void load(true)} />
+      )}
+
       {/* 适老化字号档位：小 / 中 / 大（全局生效，本地记忆） */}
       <FontScaleSwitch />
+
+      {/* 首次使用引导：仅当完全没有数据（无打卡 / 无用药 / 无消息）时出现，弱化展示在顶部，可关闭 */}
+      {showGuide && <FirstRunGuide patientId={patient.id} onDismiss={() => setGuideDismissed(true)} />}
 
       {/* 下次用药（P1：最突出卡片） */}
       {nextDose && (
@@ -247,6 +327,7 @@ export function DashboardPage() {
           <CardTitle className="flex items-center gap-2 text-base">
             <BellRing className="h-4 w-4 shrink-0 text-primary" />
             今日待办
+            {source === 'offline-snapshot' && <OfflineTag savedAt={dataAt} />}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2.5">

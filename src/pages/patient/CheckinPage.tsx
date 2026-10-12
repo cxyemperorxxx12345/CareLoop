@@ -1,7 +1,7 @@
-// 健康打卡：每日体征记录 + 异常即时校验 + 近14天趋势图
+// 健康打卡：今日建议项置顶 + 其余折叠 + 沿用上次 + 提交后人话反馈 + 近14天趋势图
 
-import { Activity, CalendarCheck2, TriangleAlert } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Activity, CalendarCheck2, CheckCircle2, ChevronDown, ChevronUp, History, ListChecks, TriangleAlert } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
@@ -16,7 +16,17 @@ import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
-import { getBaselines, getMyPatient, patientApi } from '@/lib/api';
+import { getMyPatient, patientApi } from '@/lib/api';
+import { type BaselineMetric, loadBaselines } from '@/lib/baseline';
+import {
+  type CheckinFieldKey,
+  type CheckinSnapshot,
+  FIELD_LABEL,
+  type FeedbackValues,
+  buildCheckinFeedback,
+  buildCheckinPlan,
+  pickLastCheckin,
+} from '@/lib/checkin-plan';
 
 interface CheckinRow {
   systolic: number | null;
@@ -30,6 +40,14 @@ interface ChartPoint {
   systolic: number | null;
   diastolic: number | null;
   heart_rate: number | null;
+}
+
+interface PatientProfile {
+  id: string;
+  diagnosis?: string | null;
+  surgery?: string | null;
+  history?: string | null;
+  instructions?: string | null;
 }
 
 // 字符串转数字，空值/非法返回 null
@@ -55,6 +73,15 @@ const VITAL_RANGES = {
 
 type VitalRangeKey = keyof typeof VITAL_RANGES;
 
+const EMPTY_VALS: Record<VitalRangeKey, string> = {
+  heart_rate: '',
+  temperature: '',
+  systolic: '',
+  diastolic: '',
+  glucose: '',
+  weight: '',
+};
+
 /** 提交前统一校验：返回第一条不合规提示（温和归因式文案），全部合规返回 null */
 function findVitalRangeIssue(values: Record<VitalRangeKey, number | null>): string | null {
   for (const key of Object.keys(VITAL_RANGES) as VitalRangeKey[]) {
@@ -66,6 +93,90 @@ function findVitalRangeIssue(values: Record<VitalRangeKey, number | null>): stri
     }
   }
   return null;
+}
+
+// 单值输入项的元信息：血压（两个框）和疼痛评分（滑块）单独渲染
+const SINGLE_FIELDS: Partial<Record<CheckinFieldKey, { key: VitalRangeKey; id: string; label: string; placeholder: string; inputMode: 'numeric' | 'decimal' }>> = {
+  heart_rate: { key: 'heart_rate', id: 'hr', label: '心率（次/分）', placeholder: '72', inputMode: 'numeric' },
+  glucose: { key: 'glucose', id: 'glu', label: '血糖（mmol/L）', placeholder: '5.6', inputMode: 'decimal' },
+  temperature: { key: 'temperature', id: 'temp', label: '体温（°C）', placeholder: '36.5', inputMode: 'decimal' },
+  weight: { key: 'weight', id: 'weight', label: '体重（kg）', placeholder: '60', inputMode: 'decimal' },
+};
+
+function VitalInput({
+  id,
+  label,
+  placeholder,
+  inputMode,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  placeholder: string;
+  inputMode: 'numeric' | 'decimal';
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="number"
+        inputMode={inputMode}
+        step="0.1"
+        className="h-12 rounded-xl px-3 text-lg sig-num"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+/** 一组体征输入：血压渲染成两个框，疼痛评分渲染成滑块，其余各一个框 */
+function FieldGrid({
+  fields,
+  vals,
+  setVal,
+  pain,
+  setPain,
+}: {
+  fields: CheckinFieldKey[];
+  vals: Record<VitalRangeKey, string>;
+  setVal: (k: VitalRangeKey, v: string) => void;
+  pain: number;
+  setPain: (v: number) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {fields.map((f) => {
+        if (f === 'blood_pressure') {
+          return (
+            <Fragment key="blood_pressure">
+              <VitalInput id="sys" label="收缩压（mmHg）" placeholder="120" inputMode="numeric" value={vals.systolic} onChange={(v) => setVal('systolic', v)} />
+              <VitalInput id="dia" label="舒张压（mmHg）" placeholder="80" inputMode="numeric" value={vals.diastolic} onChange={(v) => setVal('diastolic', v)} />
+            </Fragment>
+          );
+        }
+        if (f === 'pain') {
+          return (
+            <div key="pain" className="col-span-2 space-y-1.5">
+              <Label>
+                疼痛评分（<span className="sig-num">{pain}</span>/10）
+              </Label>
+              <Slider value={[pain]} onValueChange={(v) => setPain(v[0] ?? 0)} min={0} max={10} step={1} />
+            </div>
+          );
+        }
+        const meta = SINGLE_FIELDS[f];
+        if (!meta) return null;
+        const { key, ...rest } = meta;
+        return <VitalInput key={f} {...rest} value={vals[key]} onChange={(v) => setVal(key, v)} />;
+      })}
+    </div>
+  );
 }
 
 /**
@@ -140,13 +251,8 @@ async function submitDailyCheckin(args: {
 
 export function CheckinPage() {
   const navigate = useNavigate();
-  const [patient, setPatient] = useState<{ id: string } | null>(null);
-  const [systolic, setSystolic] = useState('');
-  const [diastolic, setDiastolic] = useState('');
-  const [heartRate, setHeartRate] = useState('');
-  const [temperature, setTemperature] = useState('');
-  const [glucose, setGlucose] = useState('');
-  const [weight, setWeight] = useState('');
+  const [patient, setPatient] = useState<PatientProfile | null>(null);
+  const [vals, setVals] = useState<Record<VitalRangeKey, string>>(EMPTY_VALS);
   const [pain, setPain] = useState(0);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -155,22 +261,41 @@ export function CheckinPage() {
   const [chartStatus, setChartStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [chartRefreshing, setChartRefreshing] = useState(false);
   // 个人基线（机制①）：收缩压 7 天中位数 + 偏离带，用于趋势图叠加参照
-  const [sysBaseline, setSysBaseline] = useState<{ median: number; bandLow: number; bandHigh: number } | null>(null);
+  // 表无数据时 loadBaselines 会用本人近 7 天打卡现算（source='local'）
+  const [baselines, setBaselines] = useState<BaselineMetric[]>([]);
+  const sysBaseline = baselines.find((b) => b.metric === 'systolic') ?? null;
+  // 今日建议项：按诊断/术式/既往史/医嘱推导，未取到档案前按「全部建议」渲染，避免闪成空表单
+  const [plan, setPlan] = useState(() => buildCheckinPlan([]));
+  const [moreOpen, setMoreOpen] = useState(false);
+  // 今天之前最近一次打卡：用于「沿用」；昨天没记录时退回更早的一次并标注真实日期
+  const [lastCheckin, setLastCheckin] = useState<CheckinSnapshot | null>(null);
+  const [carried, setCarried] = useState<{ from: string; names: string[] } | null>(null);
+  const [savedFeedback, setSavedFeedback] = useState<string | null>(null);
 
   // 体征即时校验：体温 >37.3 或血压 ≥140/90 黄色提示；≥39 或 ≥180 红色危险
-  const tempVal = num(temperature);
-  const sysVal = num(systolic);
-  const diaVal = num(diastolic);
+  const tempVal = num(vals.temperature);
+  const sysVal = num(vals.systolic);
+  const diaVal = num(vals.diastolic);
   const warnVital = (tempVal !== null && tempVal > 37.3) || (sysVal !== null && sysVal >= 140) || (diaVal !== null && diaVal >= 90);
   const dangerVital = (tempVal !== null && tempVal >= 39) || (sysVal !== null && sysVal >= 180);
+
+  const setVal = (k: VitalRangeKey, v: string) => {
+    setVals((prev) => ({ ...prev, [k]: v }));
+    setSavedFeedback(null);
+  };
+  const updatePain = (v: number) => {
+    setPain(v);
+    setSavedFeedback(null);
+  };
 
   // 近 14 天趋势：按天聚合，同一天取最后一条
   const loadChart = useCallback(
     async (pid: string, isRefresh = false) => {
       if (isRefresh) setChartRefreshing(true);
       setChartStatus('loading');
+      let rows: CheckinRow[] = [];
       try {
-        const rows = (await patientApi.checkinHistory(pid, 14)) as CheckinRow[];
+        rows = (await patientApi.checkinHistory(pid, 14)) as CheckinRow[];
         const byDay = new Map<string, ChartPoint>();
         for (const r of rows) {
           const date = r.created_at.slice(5, 10);
@@ -180,9 +305,16 @@ export function CheckinPage() {
         setChartStatus('ready');
       } catch {
         setChartStatus('error');
-      } finally {
-        if (isRefresh) setChartRefreshing(false);
       }
+      // 同上一次打卡记录：rows 是完整行，趋势取数成功与否都不影响（失败时 rows 为空）
+      setLastCheckin(pickLastCheckin(rows));
+      // 个人基线：优先读 daily_baseline 表，表无数据时用刚取到的打卡记录现算；样本不足则无基线带
+      try {
+        setBaselines(await loadBaselines(pid, rows));
+      } catch {
+        // 基线取数失败不影响趋势图与打卡
+      }
+      if (isRefresh) setChartRefreshing(false);
     },
     [],
   );
@@ -191,14 +323,14 @@ export function CheckinPage() {
     let alive = true;
     (async () => {
       try {
-        const p = await getMyPatient();
+        const p = (await getMyPatient()) as PatientProfile | null;
         if (!alive) return;
         setPatient(p);
         if (p) {
-          await loadChart((p as { id: string }).id);
-          // 个人基线：表未应用迁移或无样本时 getBaselines 返回空，优雅降级不显示基线带
-          const bs = await getBaselines((p as { id: string }).id);
-          setSysBaseline(bs.find((b) => b.metric === 'systolic') ?? null);
+          // 建议项依据：诊断 + 术式 + 既往史 + 医嘱，任一命中即算
+          setPlan(buildCheckinPlan([p.diagnosis, p.surgery, p.history, p.instructions]));
+          // 趋势与基线同批加载：基线优先取 daily_baseline 表，无表时用本人打卡现算
+          await loadChart(p.id);
         } else {
           setChartStatus('ready'); // 无档案：趋势区显示空态而非骨架
         }
@@ -216,45 +348,79 @@ export function CheckinPage() {
     if (patient) void loadChart(patient.id, true);
   });
 
+  /** 沿用上一次记录的数值：只填 UI，并明确提示这是沿用、不是今天新测的 */
+  const applyLastCheckin = () => {
+    if (!lastCheckin) return;
+    const pair: { key: VitalRangeKey; value: number | null; label: string }[] = [
+      { key: 'systolic', value: lastCheckin.systolic, label: FIELD_LABEL.blood_pressure },
+      { key: 'diastolic', value: lastCheckin.diastolic, label: FIELD_LABEL.blood_pressure },
+      { key: 'heart_rate', value: lastCheckin.heart_rate, label: FIELD_LABEL.heart_rate },
+      { key: 'temperature', value: lastCheckin.temperature, label: FIELD_LABEL.temperature },
+      { key: 'glucose', value: lastCheckin.blood_glucose, label: FIELD_LABEL.glucose },
+      { key: 'weight', value: lastCheckin.weight, label: FIELD_LABEL.weight },
+    ];
+    const next = { ...EMPTY_VALS };
+    const names: string[] = [];
+    for (const item of pair) {
+      if (item.value === null) continue;
+      next[item.key] = String(item.value);
+      if (!names.includes(item.label)) names.push(item.label);
+    }
+    setVals(next);
+    if (lastCheckin.pain_score !== null) {
+      setPain(lastCheckin.pain_score);
+      names.push(FIELD_LABEL.pain);
+    }
+    setCarried({ from: lastCheckin.isYesterday ? '昨天' : lastCheckin.dayLabel, names });
+    setSavedFeedback(null);
+  };
+
   const doSubmit = async () => {
     if (!patient || submitting) return;
     // 提交入口统一做区间校验，多个字段越界只提示第一条
     const rangeIssue = findVitalRangeIssue({
-      heart_rate: num(heartRate),
+      heart_rate: num(vals.heart_rate),
       temperature: tempVal,
       systolic: sysVal,
       diastolic: diaVal,
-      glucose: num(glucose),
-      weight: num(weight),
+      glucose: num(vals.glucose),
+      weight: num(vals.weight),
     });
     if (rangeIssue) {
       toast.error(rangeIssue);
       return;
     }
     setSubmitting(true);
+    // 反馈话术只基于本次真实填写值 + 本人基线，基线不足时自动退化
+    const submitted: FeedbackValues = {
+      systolic: sysVal,
+      diastolic: diaVal,
+      heart_rate: num(vals.heart_rate),
+      temperature: tempVal,
+      glucose: num(vals.glucose),
+    };
     try {
       // 日粒度幂等写入：同一天重复打卡覆盖当日快照（RPC 优先，未部署时客户端兜底）
       const { error } = await submitDailyCheckin({
         patientId: patient.id,
         systolic: sysVal,
         diastolic: diaVal,
-        heart_rate: num(heartRate),
+        heart_rate: num(vals.heart_rate),
         temperature: tempVal,
-        blood_glucose: num(glucose),
-        weight: num(weight),
+        blood_glucose: num(vals.glucose),
+        weight: num(vals.weight),
         pain_score: pain,
         note: note.trim() || null,
       });
       if (error) throw error;
-      toast.success('打卡成功');
-      setSystolic('');
-      setDiastolic('');
-      setHeartRate('');
-      setTemperature('');
-      setGlucose('');
-      setWeight('');
+      const feedback = buildCheckinFeedback(submitted, baselines);
+      setSavedFeedback(feedback);
+      // toast 留久一点，老人看得完
+      toast.success(feedback, { duration: 8000 });
+      setVals(EMPTY_VALS);
       setPain(0);
       setNote('');
+      setCarried(null);
       await loadChart(patient.id);
     } catch {
       toast.error('打卡失败，请稍后重试');
@@ -270,6 +436,7 @@ export function CheckinPage() {
   };
 
   const todayLabel = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+  const optionalNames = plan.optional.map((f) => FIELD_LABEL[f]).join('、');
 
   return (
     <div className="space-y-4 p-4">
@@ -293,39 +460,61 @@ export function CheckinPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="sys">收缩压（mmHg）</Label>
-                <Input id="sys" type="number" inputMode="numeric" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="120" value={systolic} onChange={(e) => setSystolic(e.target.value)} />
+            {/* 今日建议测量项：置顶且默认展开，其余折叠在下方「更多（可选）」 */}
+            <section className="space-y-2">
+              <div className="flex items-start gap-2">
+                <ListChecks className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <h2 className="text-[15px] font-semibold leading-6">今天建议您测这几项</h2>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                    {plan.reasons.length > 0
+                      ? `根据您的${plan.reasons.join('、')}情况，先填这几项就够了，别的可以不用填。`
+                      : '还没有您的病种信息，下面这些都可以选填。'}
+                  </p>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="dia">舒张压（mmHg）</Label>
-                <Input id="dia" type="number" inputMode="numeric" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="80" value={diastolic} onChange={(e) => setDiastolic(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="hr">心率（次/分）</Label>
-                <Input id="hr" type="number" inputMode="numeric" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="72" value={heartRate} onChange={(e) => setHeartRate(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="temp">体温（°C）</Label>
-                <Input id="temp" type="number" inputMode="decimal" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="36.5" value={temperature} onChange={(e) => setTemperature(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="glu">血糖（mmol/L）</Label>
-                <Input id="glu" type="number" inputMode="decimal" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="5.6" value={glucose} onChange={(e) => setGlucose(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="weight">体重（kg）</Label>
-                <Input id="weight" type="number" inputMode="decimal" className="h-12 rounded-xl px-3 text-lg sig-num" placeholder="60" value={weight} onChange={(e) => setWeight(e.target.value)} />
-              </div>
-            </div>
+              <FieldGrid fields={plan.suggested} vals={vals} setVal={setVal} pain={pain} setPain={updatePain} />
+            </section>
 
-            <div className="space-y-1.5">
-              <Label>
-                疼痛评分（<span className="sig-num">{pain}</span>/10）
-              </Label>
-              <Slider value={[pain]} onValueChange={(v) => setPain(v[0] ?? 0)} min={0} max={10} step={1} />
-            </div>
+            {/* 沿用上一次记录：昨天没记录时用更早的一次，并把真实日期写在按钮上 */}
+            {lastCheckin ? (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={applyLastCheckin}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-4 text-[15px] font-medium text-primary"
+                >
+                  <History className="h-4 w-4 shrink-0" />
+                  {lastCheckin.isYesterday ? '沿用昨日数值' : `沿用上次（${lastCheckin.dayLabel}）的数值`}
+                </button>
+                {carried ? (
+                  <p className="rounded-xl bg-triage-amber-bg px-3 py-2 text-xs leading-relaxed text-triage-amber">
+                    已填入 {carried.from} 的{carried.names.join('、')}——这是沿用，不是今天新测的。今天重新测过的项目，请改成今天的数字。
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* 更多（可选）：折叠区，点击区域整行 56px，箭头 + 中文「展开/收起」 */}
+            {plan.optional.length > 0 ? (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  aria-expanded={moreOpen}
+                  onClick={() => setMoreOpen((v) => !v)}
+                  className="flex h-14 w-full items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 text-left"
+                >
+                  <span className="min-w-0 text-[15px] font-medium">更多（可选）：{optionalNames}</span>
+                  <span className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+                    {moreOpen ? '收起' : '展开'}
+                    {moreOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  </span>
+                </button>
+                {moreOpen ? (
+                  <FieldGrid fields={plan.optional} vals={vals} setVal={setVal} pain={pain} setPain={updatePain} />
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="space-y-1.5">
               <Label htmlFor="note">备注（选填）</Label>
@@ -348,6 +537,14 @@ export function CheckinPage() {
               <div className="flex items-start gap-2 rounded-xl bg-triage-amber-bg p-3 text-triage-amber">
                 <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                 <p className="text-sm">体温或血压偏高，请注意休息并持续观察。</p>
+              </div>
+            ) : null}
+
+            {/* 提交后的人话反馈：留在页面上，比一闪而过的提示更好找 */}
+            {savedFeedback ? (
+              <div className="flex items-start gap-2 rounded-xl bg-primary/5 p-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <p className="text-sm leading-relaxed">{savedFeedback}</p>
               </div>
             ) : null}
 
@@ -405,6 +602,12 @@ export function CheckinPage() {
                   <Line type="monotone" dataKey="heart_rate" name="心率" stroke="hsl(var(--triage-amber))" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
+              {/* 基线来源标注：本地现算时说清口径，避免被误认为是已生成的个人基线 */}
+              {sysBaseline?.source === 'local' ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  基线带基于近 {sysBaseline.sampleDays} 天本人记录现算（个人基线尚未生成）
+                </p>
+              ) : null}
             </div>
           )}
         </CardContent>

@@ -337,8 +337,11 @@ export function AlertsPage() {
     }
     setSubmitting(true);
     try {
-      await clinicianApi.resolveAlert(resolveTarget.id, resolveAction, resolveNote.trim(), profile?.id ?? '');
-      toast.success('预警已处理');
+      const result = await clinicianApi.resolveAlert(resolveTarget.id, resolveAction, resolveNote.trim(), profile?.id ?? '');
+      // 回执没送达也要让处理流程照常完成，只是换个说法告知医护
+      if (result.notified) toast.success('预警已处理，已通知患者');
+      else if (result.notifyError) toast.warning('预警已处理，但患者通知发送失败，请另行联系患者');
+      else toast.success('预警已处理');
       setResolveTarget(null);
       await load(true);
     } catch (e) {

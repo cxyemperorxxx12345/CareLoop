@@ -197,6 +197,20 @@ export const patientApi = {
 
 // ===== 医护端 API =====
 
+// 预警处理回执正文：写给老人看的人话，不出现内部术语 / 字段名 / 编号
+function buildAlertReceiptContent(action: string, resolutionNote: string): string {
+  const actionText = action?.trim() || '跟进查看';
+  const noteText = resolutionNote?.trim() || '医护已经跟进处理';
+  return [
+    '您上报的情况，医生和护士已经看到了，请您放心，不用着急。',
+    '',
+    `医护为您做的处理：${actionText}`,
+    `现在的情况：${noteText}`,
+    '',
+    '您就照原来的安排按时吃药、好好休息。要是哪里还不舒服，随时在手机上再跟我们说一声，我们会一直关注着您。',
+  ].join('\n');
+}
+
 export const clinicianApi = {
   async patients(filters?: { name?: string; diagnosis?: string; risk?: string; department?: string }) {
     // 软隐藏：过滤掉演示期残留的测试档案（is_hidden），不删除任何账号
@@ -213,7 +227,7 @@ export const clinicianApi = {
     const since30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
     const since7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
     const today = new Date().toISOString().slice(0, 10);
-    const [patient, plans, logs7, followups, checkins30, symptoms, alerts, documents] = await Promise.all([
+    const [patient, plans, logs7, followups, checkins30, symptoms, alerts, documents, messages] = await Promise.all([
       supabase.from('patients').select('*').eq('id', patientId).maybeSingle(),
       supabase.from('medication_plans').select('*').eq('patient_id', patientId).eq('active', true),
       supabase.from('medication_logs').select('*').eq('patient_id', patientId).gte('log_date', since7.slice(0, 10)),
@@ -222,6 +236,8 @@ export const clinicianApi = {
       supabase.from('symptom_checks').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(10),
       supabase.from('alerts').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(20),
       supabase.from('documents').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(5),
+      // 时间轴：医护可读本人消息（回执 / 升级通知 / 分诊结论），常规用药提醒不入时间轴
+      supabase.from('messages').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(50),
     ]);
     return {
       patient: patient.data ?? null,
@@ -232,6 +248,7 @@ export const clinicianApi = {
       symptoms: toArray(symptoms.data),
       alerts: toArray(alerts.data),
       documents: toArray(documents.data),
+      messages: toArray(messages.data),
     };
   },
 
@@ -246,11 +263,44 @@ export const clinicianApi = {
     return toArray(data);
   },
 
-  async resolveAlert(id: string, action: string, resolutionNote: string, handledBy: string) {
-    await supabase
+  // 处理预警，并给患者回一条回执消息，补上「上报 → 医护处理 → 患者知道」的最后一跳。
+  // 返回 notified=false 表示回执未送达（预警本身已处理成功），调用方需提示但不视为失败。
+  async resolveAlert(
+    id: string,
+    action: string,
+    resolutionNote: string,
+    handledBy: string,
+  ): Promise<{ notified: boolean; notifyError: string | null }> {
+    // 只对「非 resolved → resolved」的跃迁生效：重复处理不重复发回执
+    const { data: updated, error } = await supabase
       .from('alerts')
       .update({ status: 'resolved', action, resolution_note: resolutionNote, handled_by: handledBy, handled_at: new Date().toISOString() })
-      .eq('id', id);
+      .eq('id', id)
+      .neq('status', 'resolved')
+      .select('id, patient_id');
+    if (error) throw new Error(error.message);
+
+    const patientId = (Array.isArray(updated) ? updated[0] : null)?.patient_id as string | undefined;
+    // 已是已处理状态（未发生状态跃迁）或取不到患者：不重复通知
+    if (!patientId) return { notified: false, notifyError: null };
+
+    try {
+      const { error: msgError } = await supabase.from('messages').insert({
+        patient_id: patientId,
+        type: 'clinician_reply',
+        title: '医护已查看您的上报',
+        content: buildAlertReceiptContent(action, resolutionNote),
+        link_path: '/patient/messages',
+        read: false,
+        dedup_key: `alert-receipt:${id}`,
+      });
+      // 23505 = 唯一索引冲突，说明回执已存在，属幂等命中而非失败
+      if (msgError && msgError.code !== '23505') throw new Error(msgError.message);
+      return { notified: true, notifyError: null };
+    } catch (e) {
+      // 回执写入失败不能让「处理预警」整体失败
+      return { notified: false, notifyError: (e as Error).message };
+    }
   },
 
   async reports(patientId?: string) {

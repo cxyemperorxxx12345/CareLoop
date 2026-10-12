@@ -85,7 +85,11 @@ export function FamilyTasksPage() {
         p_family_name: familyName,
       });
       if (error) throw error;
-      toast.success(action === 'contacted' ? '已记录：您已联系患者，医护端同步可见' : '已转医护回电，护士站将尽快联系');
+      toast.success(
+        action === 'contacted'
+          ? '已记录「我已联系患者」，并标注为由你代填，医护端同步可见'
+          : '已转医护回电，护士站将尽快联系（已标注为你发起的响应）',
+      );
       await refresh(pid);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '操作失败，请重试');

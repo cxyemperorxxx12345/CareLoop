@@ -1,9 +1,11 @@
 // 家属代打卡：复用患者端用药打卡交互，来源标记为家属（operator_type=family），回写患者端与医护端
+// 离线：断网时回读本地快照展示；打卡操作只入队不发送，恢复网络后自动重放补传
 
-import { CheckCircle2, Pill, UserCheck } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, CloudOff, Pill, UserCheck } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AdaptiveReminderCard } from '@/components/common/AdaptiveReminderCard';
+import { OfflineNotice } from '@/components/common/OfflineNotice';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +14,16 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { getFamilyPatient, getReminderAdaptInputs } from '@/lib/api';
+import {
+  enqueue,
+  isDryRun,
+  isOffline,
+  readSnapshot,
+  replayQueue,
+  saveSnapshot,
+} from '@/lib/offline-cache';
 import { computeReminderAdapt, type ReminderAdaptResult } from '@/lib/reminder-adapt';
 import { cn } from '@/lib/utils';
 
@@ -32,13 +43,95 @@ function currentSlot(): number {
   return 3;
 }
 
+// 家属代填来源标注：复用 medication_logs 已有的 reason 文本列承载（不加列、不加迁移）。
+// 结构化标注走 operator_type='family' + operator_name（迁移 00005）；reason 是文本冗余，
+// 保证只展示文本的地方也能识别来源。跳过原因属临床语义，标注以括号后缀追加，
+// 不前置、不覆盖，避免污染原始描述。
+function attributedReason(userReason: string | undefined, familyName: string): string {
+  const tag = `由家属${familyName}代填`;
+  const text = userReason?.trim();
+  return text ? `${text}（${tag}）` : tag;
+}
+
 function logBadgeCls(action: MedAction): string {
   if (action === 'taken') return 'bg-triage-green-bg text-triage-green';
   if (action === 'snoozed') return 'bg-triage-amber-bg text-triage-amber';
   return 'bg-muted text-muted-foreground';
 }
 
+// 离线入队的代打卡载荷（联网重放时原样提交）
+interface FamilyLogPayload {
+  pid: string;
+  planId: string;
+  slot: number;
+  action: MedAction;
+  reason: string | null;
+  familyName: string;
+}
+
+// 真实写库：家属代打卡，operator_type=family + 来源姓名；taken 同步终止提醒升级链 + 闭合家属任务
+async function sendFamilyMedicationLog(p: FamilyLogPayload): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { error } = await supabase.from('medication_logs').upsert(
+    {
+      patient_id: p.pid,
+      plan_id: p.planId,
+      log_date: today,
+      slot: p.slot,
+      action: p.action,
+      reason: p.reason,
+      operator_type: 'family',
+      operator_name: p.familyName,
+    },
+    { onConflict: 'plan_id,log_date,slot' },
+  );
+  if (error) throw error;
+  if (p.action === 'taken') {
+    await supabase
+      .from('reminders')
+      .update({ status: 'acked', updated_at: new Date().toISOString() })
+      .eq('patient_id', p.pid)
+      .eq('remind_date', today)
+      .eq('slot', p.slot)
+      .neq('status', 'acked');
+    // 漏服升级任务因代打卡而闭合：dosed 响应，链路终止
+    const { data: openTasks } = await supabase
+      .from('alerts')
+      .select('id')
+      .eq('patient_id', p.pid)
+      .eq('assignee_role', 'family')
+      .eq('status', 'open');
+    for (const t of openTasks ?? []) {
+      await supabase.rpc('family_respond_alert', { p_alert_id: t.id, p_action: 'dosed', p_family_name: p.familyName });
+    }
+  } else if (p.action === 'snoozed') {
+    await supabase
+      .from('reminders')
+      .update({
+        status: 'snoozed',
+        snooze_until: new Date(Date.now() + 30 * 60000).toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('patient_id', p.pid)
+      .eq('remind_date', today)
+      .eq('slot', p.slot)
+      .neq('status', 'acked');
+  }
+}
+
+// 离线快照内容：照护对象信息 + 用药计划/记录 + 自适应提醒结论
+interface FamilyMedicationSnapshot {
+  pid: string;
+  patientName: string;
+  patientGender: string | null;
+  familyName: string;
+  plans: PlanRow[];
+  logs: LogRow[];
+  adapt: ReminderAdaptResult | null;
+}
+
 export function FamilyMedicationsPage() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [pid, setPid] = useState<string | null>(null);
   const [familyName, setFamilyName] = useState('家属');
@@ -51,6 +144,22 @@ export function FamilyMedicationsPage() {
   const [busy, setBusy] = useState(false);
   const [skipTarget, setSkipTarget] = useState<{ planId: string; slot: number; name: string } | null>(null);
   const [reason, setReason] = useState('');
+  // 数据来源：network = 实时拉取成功；offline-snapshot = 断网回读本地快照（界面必须标注）
+  const [source, setSource] = useState<'network' | 'offline-snapshot'>('network');
+  const [dataAt, setDataAt] = useState<number>(Date.now());
+  // 离线期间已入队、等待补传的打卡（planId-slot）
+  const [queuedKeys, setQueuedKeys] = useState<string[]>([]);
+  const uidRef = useRef<string | null>(user?.id ?? null);
+  uidRef.current = user?.id ?? null;
+  const adaptRef = useRef<ReminderAdaptResult | null>(null);
+  adaptRef.current = adapt;
+  // 快照回写需要的最新照护对象信息（state 在闭包里拿不到最新值，用 ref 镜像）
+  const patientNameRef = useRef(patientName);
+  patientNameRef.current = patientName;
+  const patientGenderRef = useRef(patientGender);
+  patientGenderRef.current = patientGender;
+  const familyNameRef = useRef(familyName);
+  familyNameRef.current = familyName;
 
   const refresh = useCallback(async (patientId: string) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -58,95 +167,141 @@ export function FamilyMedicationsPage() {
       supabase.from('medication_plans').select('id, medicine_name, spec, dosage, frequency, slots, note').eq('patient_id', patientId),
       supabase.from('medication_logs').select('plan_id, slot, action, reason, operator_type, operator_name').eq('patient_id', patientId).eq('log_date', today),
     ]);
-    setPlans((pl.data ?? []) as PlanRow[]);
-    setLogs((lg.data ?? []) as LogRow[]);
+    const nextPlans = (pl.data ?? []) as PlanRow[];
+    const nextLogs = (lg.data ?? []) as LogRow[];
+    setPlans(nextPlans);
+    setLogs(nextLogs);
+    const uid = uidRef.current;
+    if (uid) {
+      void saveSnapshot<FamilyMedicationSnapshot>(`family-medications:${uid}`, {
+        pid: patientId,
+        patientName: patientNameRef.current,
+        patientGender: patientGenderRef.current,
+        familyName: familyNameRef.current,
+        plans: nextPlans,
+        logs: nextLogs,
+        adapt: adaptRef.current,
+      });
+    }
+    return { plans: nextPlans, logs: nextLogs };
   }, []);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const fp = await getFamilyPatient();
-        if (!alive) return;
-        if (fp) {
-          setPid(fp.patient.id);
-          setPatientName(fp.patient.name);
-          setPatientGender(fp.patient.gender);
-          setFamilyName(fp.family_name);
-          await refresh(fp.patient.id);
-          // 机制③：拉取照护对象近 14 天用药响应，本地推导自适应提醒
-          try {
-            const raw = await getReminderAdaptInputs(fp.patient.id, 14);
-            if (alive) setAdapt(computeReminderAdapt(raw, 14));
-          } catch {
-            if (alive) setAdapt(null);
-          }
+  // 完整加载：取绑定患者 + 用药详情；成功后写快照，断网失败则回读快照并标注离线
+  const initLoad = useCallback(async () => {
+    const uid = uidRef.current;
+    setLoading(true);
+    try {
+      const fp = await getFamilyPatient();
+      if (fp) {
+        setPid(fp.patient.id);
+        setPatientName(fp.patient.name);
+        setPatientGender(fp.patient.gender);
+        setFamilyName(fp.family_name);
+        const fresh = await refresh(fp.patient.id);
+        // 机制③：拉取照护对象近 14 天用药响应，本地推导自适应提醒
+        let nextAdapt: ReminderAdaptResult | null = null;
+        try {
+          const raw = await getReminderAdaptInputs(fp.patient.id, 14);
+          nextAdapt = computeReminderAdapt(raw, 14);
+        } catch {
+          nextAdapt = null;
         }
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : '加载失败，请稍后重试');
-      } finally {
-        if (alive) setLoading(false);
+        adaptRef.current = nextAdapt;
+        setAdapt(nextAdapt);
+        if (uid) {
+          void saveSnapshot<FamilyMedicationSnapshot>(`family-medications:${uid}`, {
+            pid: fp.patient.id,
+            patientName: fp.patient.name,
+            patientGender: fp.patient.gender,
+            familyName: fp.family_name,
+            plans: fresh.plans,
+            logs: fresh.logs,
+            adapt: nextAdapt,
+          });
+        }
       }
-    })();
-    return () => {
-      alive = false;
-    };
+      setSource('network');
+      setDataAt(Date.now());
+    } catch (e) {
+      const snap = uid ? await readSnapshot<FamilyMedicationSnapshot>(`family-medications:${uid}`) : null;
+      if (snap?.data?.pid) {
+        setPid(snap.data.pid);
+        setPatientName(snap.data.patientName ?? '');
+        setPatientGender(snap.data.patientGender ?? null);
+        setFamilyName(snap.data.familyName ?? '家属');
+        setPlans(snap.data.plans ?? []);
+        setLogs(snap.data.logs ?? []);
+        setAdapt(snap.data.adapt ?? null);
+        setSource('offline-snapshot');
+        setDataAt(snap.savedAt);
+      } else {
+        toast.error(e instanceof Error ? e.message : '加载失败，请稍后重试');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [refresh]);
 
-  // 家属代打卡：operator_type=family + 来源姓名；taken 同步终止提醒升级链 + 自动闭合对应家属任务
+  useEffect(() => {
+    void initLoad();
+  }, [initLoad]);
+
+  // 网络恢复：先重放离线队列补传，再拉新数据覆盖快照
+  useEffect(() => {
+    const onOnline = async () => {
+      await replayQueue(async (item) => {
+        await sendFamilyMedicationLog(item.payload as unknown as FamilyLogPayload);
+      });
+      setQueuedKeys([]);
+      void initLoad();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [initLoad]);
+
+  // 家属代打卡：联网时直接写库；断网时只入队并本地标记「待补传」，恢复网络后自动重放
   async function performLog(planId: string, slot: number, action: MedAction, logReason?: string) {
     if (!pid || busy) return;
+    const queueKey = `${planId}-${slot}`;
+
+    if (isOffline()) {
+      const item = await enqueue<FamilyLogPayload>('family-medication-log', {
+        pid,
+        planId,
+        slot,
+        action,
+        reason: attributedReason(logReason, familyName),
+        familyName,
+      });
+      if (item) {
+        setQueuedKeys((keys) => (keys.includes(queueKey) ? keys : [...keys, queueKey]));
+        toast.success(
+          isDryRun()
+            ? '已记录到离线队列（演练模式，不会上传）'
+            : '已记录到离线队列，联网后自动补传',
+        );
+        return;
+      }
+      toast.error('当前网络不可用，请联网后再打卡');
+      return;
+    }
+
     setBusy(true);
-    const today = new Date().toISOString().slice(0, 10);
     try {
-      const { error } = await supabase.from('medication_logs').upsert(
-        {
-          patient_id: pid,
-          plan_id: planId,
-          log_date: today,
-          slot,
-          action,
-          reason: logReason ?? null,
-          operator_type: 'family',
-          operator_name: familyName,
-        },
-        { onConflict: 'plan_id,log_date,slot' },
-      );
-      if (error) throw error;
+      await sendFamilyMedicationLog({
+        pid,
+        planId,
+        slot,
+        action,
+        reason: attributedReason(logReason, familyName),
+        familyName,
+      });
       if (action === 'taken') {
-        await supabase
-          .from('reminders')
-          .update({ status: 'acked', updated_at: new Date().toISOString() })
-          .eq('patient_id', pid)
-          .eq('remind_date', today)
-          .eq('slot', slot)
-          .neq('status', 'acked');
-        // 漏服升级任务因代打卡而闭合：dosed 响应，链路终止
-        const { data: openTasks } = await supabase
-          .from('alerts')
-          .select('id')
-          .eq('patient_id', pid)
-          .eq('assignee_role', 'family')
-          .eq('status', 'open');
-        for (const t of openTasks ?? []) {
-          await supabase.rpc('family_respond_alert', { p_alert_id: t.id, p_action: 'dosed', p_family_name: familyName });
-        }
-        toast.success(`已代为打卡，患者端与医护端均可见（来源：家属 ${familyName}）`);
+        toast.success(`已记录，并标注为由你代填（家属 ${familyName}），患者端与医护端同步可见`);
       } else if (action === 'snoozed') {
-        await supabase
-          .from('reminders')
-          .update({
-            status: 'snoozed',
-            snooze_until: new Date(Date.now() + 30 * 60000).toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('patient_id', pid)
-          .eq('remind_date', today)
-          .eq('slot', slot)
-          .neq('status', 'acked');
-        toast.success('已代为延后 30 分钟');
+        toast.success('已代为延后 30 分钟，记录已标注为由你代填');
       } else {
-        toast.success('已代为跳过本次服药');
+        toast.success('已记录跳过本次服药，并标注为由你代填');
       }
       await refresh(pid);
     } catch (e) {
@@ -227,6 +382,9 @@ export function FamilyMedicationsPage() {
         </p>
       </div>
 
+      {/* 断网兜底提示：数据来自本地快照时必须显式标注，避免误读为实时数据 */}
+      {source === 'offline-snapshot' && <OfflineNotice savedAt={dataAt} onRetry={() => void initLoad()} />}
+
       {/* 机制③：智能提醒已按照护对象（他/她）习惯自适应（最小打扰） */}
       {adapt && <AdaptiveReminderCard result={adapt} subject={patientGender === '女' ? '她' : patientGender === '男' ? '他' : '其'} />}
 
@@ -269,6 +427,7 @@ export function FamilyMedicationsPage() {
                 {meds.map((plan) => {
                   const log = logs.find((l) => l.plan_id === plan.id && l.slot === slot);
                   const byFamily = log?.operator_type === 'family';
+                  const pendingSync = queuedKeys.includes(`${plan.id}-${slot}`);
                   return (
                     <div key={plan.id} className="space-y-2.5 rounded-2xl border border-border bg-background p-3">
                       <div className="flex items-start gap-2">
@@ -290,6 +449,11 @@ export function FamilyMedicationsPage() {
                         <div className="flex items-center justify-center gap-2 rounded-xl bg-muted py-2.5 text-[15px] font-medium text-muted-foreground">
                           <CheckCircle2 className="h-4 w-4" />
                           {byFamily ? `已由家属${log.operator_name ?? ''}代打卡` : '患者本人已确认'}
+                        </div>
+                      ) : pendingSync ? (
+                        <div className="flex items-center justify-center gap-2 rounded-xl bg-triage-amber-bg py-2.5 text-[15px] font-medium text-triage-amber">
+                          <CloudOff className="h-4 w-4" />
+                          已记录，联网后自动补传
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
@@ -341,7 +505,7 @@ export function FamilyMedicationsPage() {
           <DialogHeader>
             <DialogTitle>代为跳过本次服药</DialogTitle>
             <DialogDescription>
-              {skipTarget ? `${SLOT_LABELS[skipTarget.slot]} · ${skipTarget.name}` : ''}，请填写原因，医护团队与患者都会看到由家属提交的记录。
+              {skipTarget ? `${SLOT_LABELS[skipTarget.slot]} · ${skipTarget.name}` : ''}，请填写原因。提交后将标注为由你代填，医护团队与患者都会看到。
             </DialogDescription>
           </DialogHeader>
           <Textarea

@@ -1,11 +1,13 @@
 // 用药打卡：按 4 个时间槽分组，已服/稍后/跳过三种打卡，写 log 并同步提醒状态
+// 离线：断网时回读本地快照展示；打卡操作只入队不发送，恢复网络后自动重放补传
 
-import { CheckCircle2, Pill } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, CloudOff, Pill } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AdaptiveReminderCard } from '@/components/common/AdaptiveReminderCard';
 import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
+import { OfflineNotice } from '@/components/common/OfflineNotice';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,8 +16,17 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, getReminderAdaptInputs, patientApi } from '@/lib/api';
+import {
+  enqueue,
+  isDryRun,
+  isOffline,
+  readSnapshot,
+  replayQueue,
+  saveSnapshot,
+} from '@/lib/offline-cache';
 import { computeReminderAdapt, type ReminderAdaptResult } from '@/lib/reminder-adapt';
 import { cn } from '@/lib/utils';
 
@@ -42,7 +53,56 @@ function logBadgeCls(action: MedAction): string {
   return 'bg-muted text-muted-foreground';
 }
 
+// 离线入队的打卡操作载荷（联网重放时原样提交）
+interface MedLogPayload {
+  pid: string;
+  planId: string;
+  slot: number;
+  action: MedAction;
+  reason: string | null;
+}
+
+// 真实写库：幂等 upsert log，taken/snoozed 同步终止或延后该槽提醒
+async function sendMedicationLog(p: MedLogPayload): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { error } = await supabase.from('medication_logs').upsert(
+    { patient_id: p.pid, plan_id: p.planId, log_date: today, slot: p.slot, action: p.action, reason: p.reason },
+    { onConflict: 'plan_id,log_date,slot' },
+  );
+  if (error) throw error;
+  if (p.action === 'taken') {
+    await supabase
+      .from('reminders')
+      .update({ status: 'acked', updated_at: new Date().toISOString() })
+      .eq('patient_id', p.pid)
+      .eq('remind_date', today)
+      .eq('slot', p.slot)
+      .neq('status', 'acked');
+  } else if (p.action === 'snoozed') {
+    await supabase
+      .from('reminders')
+      .update({
+        status: 'snoozed',
+        snooze_until: new Date(Date.now() + 30 * 60000).toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('patient_id', p.pid)
+      .eq('remind_date', today)
+      .eq('slot', p.slot)
+      .neq('status', 'acked');
+  }
+}
+
+// 离线快照内容：患者 id + 用药计划/记录 + 自适应提醒结论
+interface MedicationSnapshot {
+  patientId: string;
+  plans: PlanRow[];
+  logs: LogRow[];
+  adapt: ReminderAdaptResult | null;
+}
+
 export function MedicationsPage() {
+  const { user } = useAuth();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -54,11 +114,33 @@ export function MedicationsPage() {
   const [busy, setBusy] = useState(false);
   const [skipTarget, setSkipTarget] = useState<{ planId: string; slot: number; name: string } | null>(null);
   const [reason, setReason] = useState('');
+  // 数据来源：network = 实时拉取成功；offline-snapshot = 断网回读本地快照（界面必须标注）
+  const [source, setSource] = useState<'network' | 'offline-snapshot'>('network');
+  const [dataAt, setDataAt] = useState<number>(Date.now());
+  // 离线期间已入队、等待补传的打卡（planId-slot）
+  const [queuedKeys, setQueuedKeys] = useState<string[]>([]);
+  const uidRef = useRef<string | null>(user?.id ?? null);
+  uidRef.current = user?.id ?? null;
+  const adaptRef = useRef<ReminderAdaptResult | null>(null);
+  adaptRef.current = adapt;
 
+  // 刷新用药计划/记录；成功后顺带更新本地快照
   const refresh = useCallback(async (pid: string) => {
     const d = await patientApi.medicationDetail(pid);
-    setPlans(d.plans as unknown as PlanRow[]);
-    setLogs(d.todayLogs as unknown as LogRow[]);
+    const nextPlans = d.plans as unknown as PlanRow[];
+    const nextLogs = d.todayLogs as unknown as LogRow[];
+    setPlans(nextPlans);
+    setLogs(nextLogs);
+    const uid = uidRef.current;
+    if (uid) {
+      void saveSnapshot<MedicationSnapshot>(`medications:${uid}`, {
+        patientId: pid,
+        plans: nextPlans,
+        logs: nextLogs,
+        adapt: adaptRef.current,
+      });
+    }
+    return { plans: nextPlans, logs: nextLogs };
   }, []);
 
   // 完整加载：取患者档案 + 用药详情；isRefresh 时为手动/回前台刷新
@@ -69,20 +151,48 @@ export function MedicationsPage() {
         const p = await getMyPatient();
         if (p) {
           setPatientId(p.id);
-          await refresh(p.id);
+          const fresh = await refresh(p.id);
           // 机制③：拉取本人近 14 天用药响应，本地推导自适应提醒策略
+          let nextAdapt: ReminderAdaptResult | null = null;
           try {
             const raw = await getReminderAdaptInputs(p.id, 14);
-            setAdapt(computeReminderAdapt(raw, 14));
+            nextAdapt = computeReminderAdapt(raw, 14);
           } catch {
-            setAdapt(null);
+            nextAdapt = null;
+          }
+          adaptRef.current = nextAdapt;
+          setAdapt(nextAdapt);
+          const uid = uidRef.current;
+          if (uid) {
+            void saveSnapshot<MedicationSnapshot>(`medications:${uid}`, {
+              patientId: p.id,
+              plans: fresh.plans,
+              logs: fresh.logs,
+              adapt: nextAdapt,
+            });
           }
         }
+        setSource('network');
+        setDataAt(Date.now());
         setErrorMsg('');
         setStatus('ready');
       } catch (e) {
-        setErrorMsg(e instanceof Error ? e.message : '加载失败，请稍后重试');
-        setStatus('error');
+        // 断网兜底：回读上一次成功加载的快照并标注「离线数据」
+        const uid = uidRef.current;
+        const snap = uid ? await readSnapshot<MedicationSnapshot>(`medications:${uid}`) : null;
+        if (snap?.data?.patientId) {
+          setPatientId(snap.data.patientId);
+          setPlans(snap.data.plans ?? []);
+          setLogs(snap.data.logs ?? []);
+          setAdapt(snap.data.adapt ?? null);
+          setSource('offline-snapshot');
+          setDataAt(snap.savedAt);
+          setErrorMsg('');
+          setStatus('ready');
+        } else {
+          setErrorMsg(e instanceof Error ? e.message : '加载失败，请稍后重试');
+          setStatus('error');
+        }
       } finally {
         if (isRefresh) setRefreshing(false);
       }
@@ -97,41 +207,36 @@ export function MedicationsPage() {
   // 回到前台自动刷新（节流 15s），让 cron 产生的提醒状态变化及时可见
   useRefetchOnFocus(() => void initLoad(true));
 
-  // 执行打卡：幂等 upsert log，taken/snoozed 同步终止或延后该槽提醒
+  // 执行打卡：联网时直接写库；断网时只入队并本地标记「待补传」，恢复网络后自动重放
   async function performLog(planId: string, slot: number, action: MedAction, logReason?: string) {
     const pid = patientId;
     if (!pid || busy) return;
-    setBusy(true);
-    const today = new Date().toISOString().slice(0, 10);
-    try {
-      const { error } = await supabase.from('medication_logs').upsert(
-        { patient_id: pid, plan_id: planId, log_date: today, slot, action, reason: logReason ?? null },
-        { onConflict: 'plan_id,log_date,slot' },
-      );
-      if (error) throw error;
-      if (action === 'taken') {
-        // 确认服药：今日该槽提醒置 acked，终止升级链
-        await supabase
-          .from('reminders')
-          .update({ status: 'acked', updated_at: new Date().toISOString() })
-          .eq('patient_id', pid)
-          .eq('remind_date', today)
-          .eq('slot', slot)
-          .neq('status', 'acked');
-      } else if (action === 'snoozed') {
-        // 稍后 30 分钟：该槽提醒 snoozed
-        await supabase
-          .from('reminders')
-          .update({
-            status: 'snoozed',
-            snooze_until: new Date(Date.now() + 30 * 60000).toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('patient_id', pid)
-          .eq('remind_date', today)
-          .eq('slot', slot)
-          .neq('status', 'acked');
+    const queueKey = `${planId}-${slot}`;
+
+    if (isOffline()) {
+      const item = await enqueue<MedLogPayload>('medication-log', {
+        pid,
+        planId,
+        slot,
+        action,
+        reason: logReason ?? null,
+      });
+      if (item) {
+        setQueuedKeys((keys) => (keys.includes(queueKey) ? keys : [...keys, queueKey]));
+        toast.success(
+          isDryRun()
+            ? '已记录到离线队列（演练模式，不会上传）'
+            : '已记录到离线队列，联网后自动补传',
+        );
+        return;
       }
+      toast.error('当前网络不可用，请联网后再打卡');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await sendMedicationLog({ pid, planId, slot, action, reason: logReason ?? null });
       toast.success(action === 'taken' ? '已记录服药' : action === 'snoozed' ? '已延后 30 分钟，稍后再提醒您' : '已跳过本次服药');
       await refresh(pid);
     } catch (e) {
@@ -140,6 +245,19 @@ export function MedicationsPage() {
       setBusy(false);
     }
   }
+
+  // 网络恢复：先重放离线队列补传，再拉新数据覆盖快照
+  useEffect(() => {
+    const onOnline = async () => {
+      await replayQueue(async (item) => {
+        await sendMedicationLog(item.payload as unknown as MedLogPayload);
+      });
+      setQueuedKeys([]);
+      void initLoad(true);
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [initLoad]);
 
   // 已有记录时先 toast 确认，再覆盖
   function requestLog(plan: PlanRow, slot: number, action: MedAction, logReason?: string) {
@@ -218,6 +336,11 @@ export function MedicationsPage() {
         <RefreshButton onClick={() => void initLoad(true)} spinning={refreshing} />
       </div>
 
+      {/* 断网兜底提示：数据来自本地快照时必须显式标注，避免误读为实时数据 */}
+      {source === 'offline-snapshot' && (
+        <OfflineNotice savedAt={dataAt} retrying={refreshing} onRetry={() => void initLoad(true)} />
+      )}
+
       {/* 今日总进度 */}
       <Card className="rounded-2xl">
         <CardContent className="space-y-2 p-4">
@@ -262,6 +385,7 @@ export function MedicationsPage() {
                 {meds.length === 0 && <p className="text-sm text-muted-foreground">本时段暂无用药</p>}
                 {meds.map((plan) => {
                   const log = logs.find((l) => l.plan_id === plan.id && l.slot === slot);
+                  const pendingSync = queuedKeys.includes(`${plan.id}-${slot}`);
                   return (
                     <div key={plan.id} className="space-y-2.5 rounded-2xl border border-border bg-background p-3">
                       <div className="flex items-start gap-2">
@@ -285,6 +409,11 @@ export function MedicationsPage() {
                           {log.operator_type === 'family'
                             ? `已服（由家属${log.operator_name ?? ''}代打卡）`
                             : '本时段已完成打卡'}
+                        </div>
+                      ) : pendingSync ? (
+                        <div className="flex items-center justify-center gap-2 rounded-xl bg-triage-amber-bg py-2.5 text-[15px] font-medium text-triage-amber">
+                          <CloudOff className="h-4 w-4" />
+                          已记录，联网后自动补传
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
