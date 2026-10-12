@@ -1,12 +1,12 @@
 // 今日概览（患者端首页）：问候 + 今日待办 + 用药进度 + 最近打卡 + 快捷入口
 
-import { BellRing, BookOpen, Bot, CalendarHeart, FileUp, HeartPulse, LogOut, Stethoscope } from 'lucide-react';
+import { BellRing, BookOpen, Bot, CalendarHeart, FileUp, HeartPulse, Stethoscope } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
-import { CareRiskCard } from '@/components/common/CareRiskCard';
 import { FontScaleSwitch } from '@/components/common/FontScaleSwitch';
+import { SignOutButton } from '@/components/common/SignOutButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,8 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
-import { getCareRiskInputs, getMyPatient, patientApi } from '@/lib/api';
-import { type CareRiskResult, computeCareRisk } from '@/lib/carerisk';
+import { getMyPatient, patientApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // 时间槽常量
@@ -77,8 +76,6 @@ export function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [patient, setPatient] = useState<{ id: string; name: string; discharge_date: string } | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
-  // 机制②：本人履约风险预测（展示层，失败不影响首页其余功能）
-  const [careRisk, setCareRisk] = useState<CareRiskResult | null>(null);
 
   // 退出登录并回到初始落地页
   const handleSignOut = async () => {
@@ -97,16 +94,7 @@ export function DashboardPage() {
     try {
       const p = await getMyPatient();
       setPatient(p);
-      if (p) {
-        setData((await patientApi.dashboard(p.id)) as unknown as DashboardData);
-        // 机制②：拉取本人轨迹并本地预测，独立于首页主数据，失败仅降级
-        try {
-          const cr = await getCareRiskInputs(p.id, 14);
-          setCareRisk(computeCareRisk(cr, 14));
-        } catch {
-          setCareRisk(null);
-        }
-      }
+      if (p) setData((await patientApi.dashboard(p.id)) as unknown as DashboardData);
       setErrorMsg('');
       setStatus('ready');
     } catch (e) {
@@ -219,15 +207,7 @@ export function DashboardPage() {
         </div>
         <div className="flex shrink-0 items-center">
           <RefreshButton onClick={() => void load(true)} spinning={refreshing} />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-12 w-12 shrink-0 text-muted-foreground hover:text-foreground"
-            onClick={handleSignOut}
-            aria-label="退出登录"
-          >
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <SignOutButton onClick={handleSignOut} />
         </div>
       </div>
 
@@ -261,9 +241,6 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* 机制②：本人履约风险预测（自我觉察，先于今日待办） */}
-      {careRisk && <CareRiskCard result={careRisk} />}
 
       {/* 今日待办 */}
       <Card className="rounded-2xl">

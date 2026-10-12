@@ -1,10 +1,11 @@
 // 家属端首页：照护对象今日状态卡（只读）+ 待我处理升级任务（红色优先）+ 近期随访
 
-import { CalendarHeart, ChevronRight, ClipboardCheck, HeartPulse, LogOut, Pill, ShieldAlert } from 'lucide-react';
+import { CalendarHeart, ChevronRight, ClipboardCheck, HeartPulse, Pill, ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CareRiskCard } from '@/components/common/CareRiskCard';
+import { SignOutButton } from '@/components/common/SignOutButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -168,15 +169,7 @@ export function FamilyDashboardPage() {
             {relation ? `${relation.relation}视角，` : ''}以下信息经患者授权可见
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleLogout}
-          className="shrink-0 h-9 rounded-xl border-border text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40 gap-1.5"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          退出
-        </Button>
+        <SignOutButton onClick={handleLogout} />
       </div>
 
       {/* 照护对象今日状态卡（只读镜像） */}
@@ -212,9 +205,6 @@ export function FamilyDashboardPage() {
           <p className="text-xs text-muted-foreground">{risk.hint}</p>
         </CardContent>
       </Card>
-
-      {/* 机制②：照护对象履约风险预测 */}
-      {careRisk && <CareRiskCard result={careRisk} />}
 
       {/* 待我处理：升级任务（红色优先） */}
       <Card className="rounded-2xl">
@@ -277,6 +267,9 @@ export function FamilyDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 机制②：照护对象履约风险预测（低优先级参考信息，置于随访之后、操作按钮之前） */}
+      {careRisk && <CareRiskCard result={careRisk} />}
 
       {/* 快捷入口 */}
       <div className="grid grid-cols-2 gap-3">

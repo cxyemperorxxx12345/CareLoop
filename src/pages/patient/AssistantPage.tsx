@@ -1,8 +1,9 @@
 // 智能问答：对话式 UI + assistant-chat Edge Function SSE 流式输出
-import { useEffect, useRef, useState } from 'react';
-import { Streamdown } from 'streamdown';
+
 import { AlertTriangle, Bot, PhoneCall, SendHorizonal, ShieldAlert } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { Streamdown } from 'streamdown';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
@@ -28,6 +29,29 @@ interface ChatMsg {
 }
 
 const EXAMPLE_QUESTIONS = ['我现在的药需要空腹吃吗？', '术后伤口有点发红，要紧吗？', '出院后血压控制在多少合适？'];
+
+// 思考中占位：文字呼吸闪烁 + 三点依次弹跳。
+// 必须是「会动的」——老人看到静止画面容易以为 App 卡死，这里明确表达"正在生成"。
+function ThinkingIndicator() {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="animate-pulse font-medium text-primary">回复正在生成中</span>
+      <span className="inline-flex items-end gap-1">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
+            style={{ animationDelay: `${i * 160}ms` }}
+          />
+        ))}
+      </span>
+    </span>
+  );
+}
 
 export function AssistantPage() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -246,7 +270,7 @@ export function AssistantPage() {
                       )}
                     </>
                   ) : (
-                    <span className="text-sm text-muted-foreground">正在思考…</span>
+                    <ThinkingIndicator />
                   )}
                 </div>
               </div>
