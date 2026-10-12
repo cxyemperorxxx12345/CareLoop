@@ -166,8 +166,7 @@ All colors MUST be HSL.
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 12px;
-  letter-spacing: 0.18em;
+  font-size: 13px;
   font-weight: 500;
   color: hsl(var(--muted-foreground));
 }

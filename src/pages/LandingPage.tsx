@@ -59,7 +59,7 @@ export const LandingPage: React.FC = () => {
             </Link>
             <Link
               to="/login"
-              className="rounded-full bg-primary text-primary-foreground text-sm font-medium px-5 py-2 hover:brightness-95 transition-all shadow-sm"
+              className="rounded-full bg-primary text-primary-foreground text-sm font-medium px-5 py-2 hover:brightness-95 transition-all"
             >
               开始使用
             </Link>
@@ -74,12 +74,38 @@ export const LandingPage: React.FC = () => {
       </header>
 
       <main className="flex-1 w-full max-w-full overflow-x-hidden">
-        {/* Section 0: 产品定位介绍屏（「愈见」显著放大） */}
+        {/* Section 0: 品牌字 + 一句话定位（唯一重音：实色「愈见」与闭环弧线签名） */}
         <section id="positioning" className="relative w-full max-w-full overflow-hidden">
           <div className="container py-20 md:py-28 text-center">
-            <p className="sig-eyebrow justify-center">出院患者全周期照护助手</p>
-            <h1 className="mt-6 font-black leading-[1.1] tracking-tight text-[clamp(3.2rem,11vw,7.5rem)]">
-              <span className="bg-gradient-to-r from-primary via-sig-rose to-primary bg-clip-text text-transparent">愈见</span>
+            <h1 className="font-black leading-[1.1] tracking-tight text-[clamp(3.2rem,11vw,7.5rem)]">
+              <span className="relative inline-block">
+                {/* 闭环弧线：CareLoop 的签名图形——全页唯一的重音装饰，其余保持安静 */}
+                <svg
+                  aria-hidden
+                  viewBox="0 0 220 120"
+                  preserveAspectRatio="none"
+                  className="pointer-events-none absolute left-1/2 top-1/2 h-[1.2em] w-[2.24em] -translate-x-1/2 -translate-y-1/2 text-primary/20"
+                >
+                  <path
+                    d="M 187 25 A 100 55 0 1 0 160 108"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <path
+                    d="M 144 105 L 160 108 L 154 123"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </svg>
+                <span className="relative text-primary">愈见</span>
+              </span>
               <span className="ml-4 align-middle text-[clamp(1.3rem,3.5vw,2.4rem)] font-bold text-muted-foreground">CareLoop</span>
             </h1>
             <p className="mt-6 text-[16px] md:text-lg leading-[1.9] text-muted-foreground max-w-2xl mx-auto">
@@ -88,7 +114,7 @@ export const LandingPage: React.FC = () => {
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
                 to="/login?role=patient"
-                className="rounded-full bg-primary text-primary-foreground font-medium px-7 py-3 text-[15px] hover:brightness-95 transition-all shadow-sm"
+                className="rounded-full bg-primary text-primary-foreground font-medium px-7 py-3 text-[15px] hover:brightness-95 transition-all"
               >
                 患者端 · 开始使用
               </Link>
@@ -113,7 +139,11 @@ export const LandingPage: React.FC = () => {
           <div className="grid md:grid-cols-3 min-h-[34rem] md:min-h-[38rem]">
             {/* 左：患者端 */}
             <div className="sig-soft-bg p-7 md:p-10 flex flex-col animate-curtain-left">
-              <p className="sig-eyebrow">患者端 · 移动优先</p>
+              <p className="sig-eyebrow">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                <span className="font-bold text-foreground">患者端</span>
+                <span>移动优先</span>
+              </p>
               <h2 className="mt-4 font-black text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.3]">
                 看得懂的
                 <br />
@@ -160,7 +190,11 @@ export const LandingPage: React.FC = () => {
 
             {/* 中：家属端 */}
             <div className="border-t md:border-t-0 md:border-x border-border sig-mid-bg p-7 md:p-10 flex flex-col animate-fade-rise">
-              <p className="sig-eyebrow">家属端 · 照护协同</p>
+              <p className="sig-eyebrow">
+                <span className="h-1.5 w-1.5 rounded-full bg-triage-amber" aria-hidden />
+                <span className="font-bold text-foreground">家属端</span>
+                <span>照护协同</span>
+              </p>
               <h2 className="mt-4 font-black text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.3]">
                 帮得上忙的
                 <br />
@@ -202,7 +236,11 @@ export const LandingPage: React.FC = () => {
 
             {/* 右：医护端 */}
             <div className="sig-deep-bg p-7 md:p-10 flex flex-col animate-curtain-right">
-              <p className="sig-eyebrow sig-deep-muted">医护端 · Web 工作台</p>
+              <p className="sig-eyebrow sig-deep-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-foreground" aria-hidden />
+                <span className="font-bold">医护端</span>
+                <span>Web 工作台</span>
+              </p>
               <h2 className="mt-4 font-black text-[clamp(1.7rem,3vw,2.4rem)] leading-[1.3]">
                 看得见的
                 <br />
@@ -243,7 +281,10 @@ export const LandingPage: React.FC = () => {
         <section id="loop" className="py-14 md:py-20">
           <div className="container">
             <div className="max-w-2xl">
-              <p className="sig-eyebrow">核心闭环</p>
+              <p className="sig-eyebrow">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                核心闭环
+              </p>
               <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
                 一份出院小结，<span className="text-primary">跑完八步闭环</span>
               </h2>
@@ -327,7 +368,10 @@ export const LandingPage: React.FC = () => {
         <section id="showcase" className="py-12 md:py-20 bg-card/60 border-y border-border w-full max-w-full overflow-hidden">
           <div className="container max-w-6xl mx-auto px-4 sm:px-6">
             <div className="max-w-2xl mx-auto text-center">
-              <p className="sig-eyebrow">产品实景 · 三端协同</p>
+              <p className="sig-eyebrow justify-center">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                产品实景
+              </p>
               <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
                 两部手机，<span className="text-primary">一台电脑</span>
               </h2>
@@ -629,7 +673,10 @@ export const LandingPage: React.FC = () => {
         <section id="escalation" className="py-14 md:py-20 bg-secondary/50">
           <div className="container">
             <div className="max-w-2xl">
-              <p className="sig-eyebrow">升级链路 · 三级响应</p>
+              <p className="sig-eyebrow">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                升级链路
+              </p>
               <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
                 一次漏服，<span className="text-primary">三方接力</span>
               </h2>
@@ -649,7 +696,7 @@ export const LandingPage: React.FC = () => {
                       onMouseEnter={() => setEscStep(i)}
                       className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${
                         escStep === i
-                          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                          ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground'
                       }`}
                     >
@@ -671,7 +718,7 @@ export const LandingPage: React.FC = () => {
                         isLast ? 'border-sig-deep-border bg-sig-deep-card' : 'border-border bg-card'
                       }`}
                     >
-                      <p className={`text-xs font-medium tracking-[0.2em] ${isLast ? 'text-triage-red' : 'text-muted-foreground'} sig-num`}>
+                      <p className={`text-xs font-medium ${isLast ? 'text-triage-red' : 'text-muted-foreground'} sig-num`}>
                         {s.time}
                       </p>
                       <h3 className={`mt-3 font-black text-2xl ${isLast ? 'text-triage-red' : ''}`}>{s.title}</h3>
@@ -703,7 +750,10 @@ export const LandingPage: React.FC = () => {
         <section id="triage" className="py-14 md:py-20">
           <div className="container">
             <div className="max-w-2xl">
-              <p className="sig-eyebrow">症状自查 · 三级分诊</p>
+              <p className="sig-eyebrow">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                症状自查
+              </p>
               <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
                 症状一勾，<span className="text-primary">风险自明</span>
               </h2>
@@ -756,15 +806,14 @@ export const LandingPage: React.FC = () => {
         <section id="cta" className="py-14 md:py-20">
           <div className="container">
             <div className="rounded-[2rem] bg-card border border-border p-10 md:p-14 text-center">
-              <p className="sig-eyebrow justify-center">愈见 · CareLoop</p>
-              <h2 className="mt-4 font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.28]">三方协同，闭环合一</h2>
+            <h2 className="font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.28]">三方协同，闭环合一</h2>
               <p className="mt-4 text-muted-foreground text-[15px] leading-[1.85] max-w-xl mx-auto">
                 出院后那几周，患者不再单打独斗，家属不再干着急，医护不再凭电话追踪。上传出院小结，剩下的交给愈见。
               </p>
               <div className="mt-7 flex flex-wrap justify-center gap-3">
                 <Link
                   to="/login?role=patient"
-                  className="rounded-full bg-primary text-primary-foreground font-medium px-7 py-3 text-[15px] hover:brightness-95 transition-all shadow-sm"
+                  className="rounded-full bg-primary text-primary-foreground font-medium px-7 py-3 text-[15px] hover:brightness-95 transition-all"
                 >
                   患者端 · 开始使用
                 </Link>
