@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/db/supabase';
 import { clinicianApi } from '@/lib/api';
+import { CARERISK_META, type CareRiskResult, computeCareRisk } from '@/lib/carerisk';
 
 // 与数据库真实列名一致的本地行类型
 interface PatientRow {
@@ -20,11 +21,14 @@ interface PatientRow {
   age: number | null;
   diagnosis: string | null;
   department: string | null;
+  discharge_date: string;
   risk_level: 'green' | 'yellow' | 'red';
 }
-interface LogRow { patient_id: string; action: 'taken' | 'snoozed' | 'skipped'; }
+interface LogRow { patient_id: string; plan_id: string; slot: number; action: 'taken' | 'snoozed' | 'skipped'; log_date: string; }
 interface CheckinRow { patient_id: string; created_at: string; }
 interface OpenAlertRow { patient_id: string; }
+interface PlanRow { patient_id: string; id: string; slots: number[] | null; }
+interface SymptomRow { patient_id: string; level: string; created_at: string; }
 
 // 风险等级徽章映射
 const RISK_META: Record<string, { label: string; cls: string }> = {
@@ -59,6 +63,9 @@ export function PatientsPage() {
   const [logs7, setLogs7] = useState<LogRow[]>([]);
   const [checkins, setCheckins] = useState<CheckinRow[]>([]);
   const [openAlerts, setOpenAlerts] = useState<OpenAlertRow[]>([]);
+  // 机制②：在服方案 + 近 7 天症状，用于本地预测每位患者履约风险
+  const [plans, setPlans] = useState<PlanRow[]>([]);
+  const [symptoms, setSymptoms] = useState<SymptomRow[]>([]);
 
   // 首次挂载：拉取全部科室用于筛选去重
   useEffect(() => {
@@ -89,19 +96,25 @@ export function PatientsPage() {
       })) as unknown as PatientRow[];
       setRows(data);
       if (data.length === 0) {
-        setLogs7([]); setCheckins([]); setOpenAlerts([]);
+        setLogs7([]); setCheckins([]); setOpenAlerts([]); setPlans([]); setSymptoms([]);
         return;
       }
       const ids = data.map((p) => p.id);
       const since7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-      const [logRes, checkinRes, alertRes] = await Promise.all([
-        supabase.from('medication_logs').select('patient_id, action').in('patient_id', ids).gte('log_date', since7),
+      const since7iso = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      // 机制②：方案 + 症状与依从/打卡/预警一并聚合，避免 N+1
+      const [logRes, checkinRes, alertRes, planRes, symRes] = await Promise.all([
+        supabase.from('medication_logs').select('patient_id, plan_id, slot, action, log_date').in('patient_id', ids).gte('log_date', since7),
         supabase.from('checkins').select('patient_id, created_at').in('patient_id', ids).order('created_at', { ascending: false }).limit(500),
         supabase.from('alerts').select('patient_id').in('patient_id', ids).eq('status', 'open'),
+        supabase.from('medication_plans').select('patient_id, id, slots').in('patient_id', ids).eq('active', true),
+        supabase.from('symptom_checks').select('patient_id, level, created_at').in('patient_id', ids).gte('created_at', since7iso),
       ]);
       setLogs7((logRes.data ?? []) as unknown as LogRow[]);
       setCheckins((checkinRes.data ?? []) as unknown as CheckinRow[]);
       setOpenAlerts((alertRes.data ?? []) as unknown as OpenAlertRow[]);
+      setPlans((planRes.data ?? []) as unknown as PlanRow[]);
+      setSymptoms((symRes.data ?? []) as unknown as SymptomRow[]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '加载患者列表失败');
     } finally {
@@ -146,6 +159,26 @@ export function PatientsPage() {
     openAlerts.forEach((a) => map.set(a.patient_id, (map.get(a.patient_id) ?? 0) + 1));
     return map;
   }, [openAlerts]);
+
+  // 机制②：本地预测每位患者履约风险（窗口 7 天），无需 N+1 查询
+  const careRiskMap = useMemo(() => {
+    const map = new Map<string, CareRiskResult>();
+    const since = Date.now() - 7 * 86400000;
+    rows.forEach((p) => {
+      const logs = logs7.filter((l) => l.patient_id === p.id);
+      const ck = checkins.filter((c) => c.patient_id === p.id && Date.parse(c.created_at) >= since);
+      const sy = symptoms.filter((s) => s.patient_id === p.id);
+      const pl = plans.filter((x) => x.patient_id === p.id);
+      map.set(p.id, computeCareRisk({ plans: pl, logs, checkins: ck, symptoms: sy, dischargeDate: p.discharge_date }, 7));
+    });
+    return map;
+  }, [rows, logs7, checkins, symptoms, plans]);
+
+  // 默认按预测风险降序：医护一眼先看最该介入的人
+  const sortedRows = useMemo(
+    () => [...rows].sort((a, b) => (careRiskMap.get(b.id)?.score ?? 0) - (careRiskMap.get(a.id)?.score ?? 0)),
+    [rows, careRiskMap],
+  );
 
   const setFilter = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
@@ -217,6 +250,7 @@ export function PatientsPage() {
                   <TableHead className="whitespace-nowrap">姓名</TableHead>
                   <TableHead className="whitespace-nowrap">诊断</TableHead>
                   <TableHead className="whitespace-nowrap">风险</TableHead>
+                  <TableHead className="whitespace-nowrap">履约风险</TableHead>
                   <TableHead className="whitespace-nowrap">依从率</TableHead>
                   <TableHead className="whitespace-nowrap">最新打卡</TableHead>
                   <TableHead className="whitespace-nowrap">未处理预警</TableHead>
@@ -224,7 +258,7 @@ export function PatientsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((p) => {
+                {sortedRows.map((p) => {
                   const risk = RISK_META[p.risk_level] ?? RISK_META.green;
                   const c = complianceMap.get(p.id);
                   const total = c ? c.taken + c.skipped : 0;
@@ -246,6 +280,14 @@ export function PatientsPage() {
                       <TableCell className="whitespace-nowrap text-muted-foreground">{p.diagnosis ?? '—'}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         <Badge className={risk.cls}>{risk.label}</Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {(() => {
+                          const cr = careRiskMap.get(p.id);
+                          if (!cr) return <span className="text-muted-foreground">—</span>;
+                          const m = CARERISK_META[cr.level];
+                          return <Badge className={m.cls}>{m.label} · {cr.score}</Badge>;
+                        })()}
                       </TableCell>
                       <TableCell className="whitespace-nowrap sig-num">{compliance}</TableCell>
                       <TableCell className="whitespace-nowrap text-muted-foreground">

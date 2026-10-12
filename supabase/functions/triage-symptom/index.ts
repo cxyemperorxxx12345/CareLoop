@@ -1,4 +1,8 @@
-// CareLoop 症状分诊：红旗规则兜底 + MiniMax 综合分级，黄/红自动生成医护端预警
+// CareLoop 症状分诊：群体安全阈值 + 个体轨迹偏离 双通道（机制①判定层）
+//   - 群体通道：危险体征（体温≥39 / 收缩压≥180）直接红色，non-negotiable
+//   - 个体通道：当前体征对照本人 7 天基线带（daily_baseline），是否偏离他自己的轨道
+//   - 双通道冲突：红旗词命中但体征未偏离本人轨道 → 降级黄色中间态（消误报，而非直接红）
+//   - 黄/红自动生成医护端预警；返回 baseline 摘要供前端展示「您的基线 vs 今天」
 import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { getAdminClient, getUserClient, getAuthUser } from '../_shared/supabase.ts';
 import { callMiniMaxJson, extractContent, extractJsonObject } from '../_shared/minimax.ts';
@@ -21,6 +25,9 @@ const RED_FLAG_GROUPS: Array<{ canonical: string; variants: string[] }> = [
 // 多词命中（≥2 组）视为风险叠加，无视严重度门槛直接红色。
 const RED_SEVERITY_THRESHOLD = 5;
 
+// 会被纳入个体偏离判定的体征指标（与 daily_baseline.metric 对应）
+const DEVIATION_METRICS = ['systolic', 'diastolic', 'heart_rate', 'temperature', 'blood_glucose'] as const;
+
 Deno.serve(async (req: Request): Promise<Response> => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -37,6 +44,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     temperature?: number | null;
     systolic?: number | null;
     diastolic?: number | null;
+    heart_rate?: number | null;
+    blood_glucose?: number | null;
   };
   try {
     body = await req.json();
@@ -50,6 +59,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const severity = Math.min(10, Math.max(1, Number(body.severity ?? 5)));
   const temperature = body.temperature ?? null;
   const systolic = body.systolic ?? null;
+  const diastolic = body.diastolic ?? null;
+  const heart_rate = body.heart_rate ?? null;
+  const blood_glucose = body.blood_glucose ?? null;
 
   const admin = getAdminClient();
   const { data: patient } = await admin
@@ -67,7 +79,40 @@ Deno.serve(async (req: Request): Promise<Response> => {
     risk_level: string;
   };
 
-  // ===== 第一步：红旗规则兜底 =====
+  // ===== 个体基线通道（机制①双通道之一）=====
+  const { data: baseRows } = await admin
+    .from('daily_baseline')
+    .select('metric, median, mad, band_low, band_high')
+    .eq('patient_id', p.id);
+  const baseMap = new Map<string, { median: number; bandLow: number; bandHigh: number }>();
+  (baseRows ?? []).forEach((b) => {
+    baseMap.set(b.metric, {
+      median: Number(b.median),
+      bandLow: Number(b.band_low),
+      bandHigh: Number(b.band_high),
+    });
+  });
+  const hasBaseline = baseMap.size > 0;
+  // 当前体征相对本人偏离带：high=超上界 / low=低于下界 / in=带内
+  const personalDeviation = (
+    metric: string,
+    val: number | null,
+  ): { dir: 'high' | 'low' | 'in'; delta: number } | null => {
+    if (val === null) return null;
+    const b = baseMap.get(metric);
+    if (!b) return null;
+    if (val > b.bandHigh) return { dir: 'high', delta: Math.round((val - b.bandHigh) * 10) / 10 };
+    if (val < b.bandLow) return { dir: 'low', delta: Math.round((b.bandLow - val) * 10) / 10 };
+    return { dir: 'in', delta: 0 };
+  };
+  const devByMetric: Record<string, { dir: 'high' | 'low' | 'in'; delta: number } | null> = {};
+  for (const m of DEVIATION_METRICS) {
+    const v = m === 'systolic' ? systolic : m === 'diastolic' ? diastolic : m === 'heart_rate' ? heart_rate : m === 'temperature' ? temperature : blood_glucose;
+    devByMetric[m] = personalDeviation(m, v);
+  }
+  const personalDeviated = Object.values(devByMetric).some((d) => d && d.dir !== 'in');
+
+  // ===== 第一步：红旗规则兜底 + 双通道判定 =====
   const combined = `${chief} ${accompanying}`;
   // 命中全部红旗组（规范词或任一变体），用于「多词命中=风险叠加」判断
   const hitGroups = RED_FLAG_GROUPS.filter(
@@ -78,36 +123,59 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const feverRed = temperature !== null && temperature >= 39;
   const bpRed = systolic !== null && systolic >= 180;
   const vitalsRed = feverRed || bpRed;
-  // 红色 = 危险体征（体温≥39 / 收缩压≥180），或红旗词命中且（严重度≥门槛 或 多词叠加）
+  // 红色触发条件：群体危险体征，或红旗词命中且（严重度≥门槛 或 多词叠加）
   const ruleRed = vitalsRed || (Boolean(hitKeyword) && (severity >= RED_SEVERITY_THRESHOLD || multiFlag));
   // 红旗词命中但严重度不足：不直接放行，按黄色处理（24h 联系随访），避免漏判又不滥用红色
   const ruleYellow = Boolean(hitKeyword) && !ruleRed;
 
-  let level: 'green' | 'yellow' | 'red' = ruleRed ? 'red' : ruleYellow ? 'yellow' : 'green';
+  let level: 'green' | 'yellow' | 'red' = 'green';
   let advice = '';
   let evidence = '';
 
-  if (ruleRed) {
+  if (vitalsRed) {
+    // 群体安全阈值越线：直接红色，不适用个体偏离降级
     const reasons: string[] = [];
-    if (hitKeyword) {
-      reasons.push(
-        multiFlag
-          ? `命中多个红旗关键词（${hitGroups.map((g) => g.canonical).join('、')}），风险叠加`
-          : `命中红旗关键词「${hitKeyword}」且严重度 ${severity}/10 ≥ ${RED_SEVERITY_THRESHOLD}`,
-      );
-    }
     if (feverRed) reasons.push(`体温 ${temperature}℃ ≥ 39℃`);
     if (bpRed) reasons.push(`收缩压 ${systolic}mmHg ≥ 180mmHg`);
-    evidence = `红旗规则：${reasons.join('；')}`;
+    evidence = `群体安全阈值：${reasons.join('；')}`;
     advice =
-      '【红色预警】您的症状存在高风险信号，请立即就医或拨打 120，不要自行观察等待。' +
+      '【红色预警】您的体征达到高危范围，请立即就医或拨打 120，不要自行观察等待。' +
       '本平台已同步通知您的责任医护与紧急联系人。';
+  } else if (ruleRed) {
+    // 红旗词触发：看个体偏离通道——体征未偏离本人轨道则降级黄（消误报），否则红
+    if (hasBaseline && !personalDeviated) {
+      level = 'yellow';
+      const sysNote = sysDevText();
+      const tempNote = tempDevText();
+      const whyNote = sysNote || tempNote;
+      evidence = `红旗规则命中「${hitKeyword}」但体征未偏离本人轨道${whyNote ? `（${whyNote}）` : ''}，按黄色随访观察`;
+      advice =
+        '症状描述提示一定风险，但当前体征相对您自身基线平稳，建议 24 小时内联系随访医护评估；若加重或出现胸痛加重、呼吸困难，请立即就医或拨打 120。';
+    } else {
+      level = 'red';
+      const reasons: string[] = [];
+      if (hitKeyword) {
+        reasons.push(
+          multiFlag
+            ? `命中多个红旗关键词（${hitGroups.map((g) => g.canonical).join('、')}），风险叠加`
+            : `命中红旗关键词「${hitKeyword}」且严重度 ${severity}/10 ≥ ${RED_SEVERITY_THRESHOLD}`,
+        );
+      }
+      const sysH = devByMetric.systolic;
+      if (sysH && sysH.dir === 'high') reasons.push(`收缩压 ${systolic}mmHg 超出本人基线带上界 ${baseMap.get('systolic')!.bandHigh}（+${sysH.delta}）`);
+      const tempH = devByMetric.temperature;
+      if (tempH && tempH.dir === 'high') reasons.push(`体温 ${temperature}℃ 超出本人基线带上界 ${baseMap.get('temperature')!.bandHigh}（+${tempH.delta}）`);
+      evidence = `红旗规则 + 个体偏离：${reasons.join('；')}`;
+      advice =
+        '【红色预警】您的症状与体征均提示高风险信号，请立即就医或拨打 120，不要自行观察等待。' +
+        '本平台已同步通知您的责任医护与紧急联系人。';
+    }
   } else if (ruleYellow) {
     evidence = `红旗规则：命中关键词「${hitKeyword}」，但严重度 ${severity}/10 未达紧急阈值（${RED_SEVERITY_THRESHOLD}），按黄色处理`;
     advice = '症状描述提示一定风险，建议 24 小时内联系随访医护评估；若加重或出现胸痛加重、呼吸困难，请立即就医或拨打 120。';
   } else {
     // ===== 第二步：MiniMax 综合分级 =====
-    const context = [
+    const ctx = [
       `患者：${p.name}`,
       `出院诊断：${p.diagnosis ?? '未知'}`,
       `既往史：${p.history ?? '无记录'}`,
@@ -125,8 +193,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         {
           role: 'user',
           content:
-            `${context}\n\n当前症状：${chief}\n持续时长：${body.duration ?? '未填写'}\n严重度(1-10)：${severity}\n` +
-            `伴随症状：${accompanying || '无'}\n体温：${temperature ?? '未测'}℃\n收缩压：${systolic ?? '未测'}mmHg`,
+            `${ctx}\n\n当前症状：${chief}\n持续时长：${body.duration ?? '未填写'}\n严重度(1-10)：${severity}\n` +
+            `伴随症状：${accompanying || '无'}\n体温：${temperature ?? '未测'}℃\n收缩压：${systolic ?? '未测'}mmHg\n舒张压：${diastolic ?? '未测'}mmHg\n心率：${heart_rate ?? '未测'}次/分`,
         },
       ], { maxCompletionTokens: 2048, temperature: 0.3 });
       const obj = extractJsonObject(extractContent(data));
@@ -134,16 +202,54 @@ Deno.serve(async (req: Request): Promise<Response> => {
       level = lv === 'red' ? 'red' : lv === 'green' ? 'green' : 'yellow';
       advice = String(obj.advice ?? '');
       evidence = String(obj.evidence ?? '');
+      // 个体偏离通道：体征偏离本人轨道时，从严升黄（防止 AI 漏判低风险）
+      if (hasBaseline && personalDeviated && level !== 'red') {
+        level = 'yellow';
+        evidence = `${deviationPhrase()}；${evidence}`;
+      } else if (hasBaseline) {
+        evidence = `${evidence}；当前体征相对本人基线平稳`;
+      }
     } catch {
-      // 模型不可用时按症状严重度兜底
       level = severity >= 7 ? 'yellow' : 'green';
       advice = level === 'yellow' ? '症状较明显，建议 24 小时内联系随访医护评估。' : '症状较轻，请按计划居家观察并继续打卡记录。';
       evidence = '系统兜底分级（AI 暂不可用）';
+      if (hasBaseline && personalDeviated && level !== 'red') {
+        level = 'yellow';
+        evidence = `${deviationPhrase()}；${evidence}`;
+      }
     }
   }
 
   if (level === 'red') {
     advice = advice.includes('立即就医') ? advice : `【红色预警】${advice} 请立即前往急诊或拨打 120。`;
+  }
+
+  // 个体偏离文字说明（供 evidence 复用）
+  function deviationPhrase(): string {
+    const parts: string[] = [];
+    for (const m of DEVIATION_METRICS) {
+      const d = devByMetric[m];
+      if (!d || d.dir === 'in') continue;
+      const label: Record<string, string> = {
+        systolic: '收缩压',
+        diastolic: '舒张压',
+        heart_rate: '心率',
+        temperature: '体温',
+        blood_glucose: '血糖',
+      };
+      parts.push(`${label[m]}${d.dir === 'high' ? '超' : '低于'}本人带 +${d.delta}`);
+    }
+    return `个体偏离：${parts.join('、')}`;
+  }
+  function sysDevText(): string {
+    const d = devByMetric.systolic;
+    if (!d) return '';
+    return `收缩压 ${systolic} 在本人基线带 ${baseMap.get('systolic')!.bandLow}-${baseMap.get('systolic')!.bandHigh} 内`;
+  }
+  function tempDevText(): string {
+    const d = devByMetric.temperature;
+    if (!d) return '';
+    return `体温 ${temperature}℃ 在本人基线带 ${baseMap.get('temperature')!.bandLow}-${baseMap.get('temperature')!.bandHigh} 内`;
   }
 
   // ===== 第三步：落库 =====
@@ -195,7 +301,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  return jsonResponse({ ok: true, level, advice, evidence, symptom_check_id: checkId });
+  // 基线摘要：返回本人各指标中线与偏离带，前端展示「您的基线 vs 今天」
+  const baselineMetrics = DEVIATION_METRICS.map((m) => {
+    const b = baseMap.get(m);
+    return b ? { metric: m, median: b.median, bandLow: b.bandLow, bandHigh: b.bandHigh } : null;
+  }).filter((x): x is { metric: string; median: number; bandLow: number; bandHigh: number } => x !== null);
+
+  return jsonResponse({
+    ok: true,
+    level,
+    advice,
+    evidence,
+    symptom_check_id: checkId,
+    baseline: { available: hasBaseline, metrics: baselineMetrics },
+  });
 });
 
 export {};

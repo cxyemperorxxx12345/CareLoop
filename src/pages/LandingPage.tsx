@@ -773,7 +773,7 @@ export const LandingPage: React.FC = () => {
                   to="/login?role=patient"
                   className="rounded-full bg-primary text-primary-foreground px-6 py-3 hover:brightness-95 transition-all"
                 >
-                  患者端开始
+                  患者端
                 </Link>
                 <Link to="/login?role=family" className="text-foreground/70 hover:text-foreground">
                   家属端

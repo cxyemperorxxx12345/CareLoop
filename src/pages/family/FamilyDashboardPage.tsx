@@ -1,15 +1,18 @@
 // 家属端首页：照护对象今日状态卡（只读）+ 待我处理升级任务（红色优先）+ 近期随访
+
+import { CalendarHeart, ChevronRight, ClipboardCheck, HeartPulse, LogOut, Pill, ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarHeart, ChevronRight, ClipboardCheck, HeartPulse, LogOut, Pill, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { CareRiskCard } from '@/components/common/CareRiskCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/db/supabase';
-import { getFamilyPatient } from '@/lib/api';
+import { getCareRiskInputs, getFamilyPatient } from '@/lib/api';
+import { type CareRiskResult, computeCareRisk } from '@/lib/carerisk';
 
 const SLOT_LABELS = ['早 8:00', '中 12:00', '晚 18:00', '睡前 21:00'];
 const SLOT_HOURS = [8, 12, 18, 21];
@@ -44,6 +47,8 @@ export function FamilyDashboardPage() {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [followups, setFollowups] = useState<FollowupRow[]>([]);
   const [familyAlerts, setFamilyAlerts] = useState<AlertRow[]>([]);
+  // 机制②：照护对象履约风险预测（展示层）
+  const [careRisk, setCareRisk] = useState<CareRiskResult | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -69,6 +74,13 @@ export function FamilyDashboardPage() {
         setLogs((lg.data ?? []) as LogRow[]);
         setFollowups((fu.data ?? []) as FollowupRow[]);
         setFamilyAlerts((al.data ?? []) as AlertRow[]);
+        // 机制②：照护对象本人轨迹预测
+        try {
+          const cr = await getCareRiskInputs(fp.patient.id, 14);
+          if (alive) setCareRisk(computeCareRisk(cr, 14));
+        } catch {
+          if (alive) setCareRisk(null);
+        }
       } finally {
         if (alive) setLoading(false);
       }
@@ -200,6 +212,9 @@ export function FamilyDashboardPage() {
           <p className="text-xs text-muted-foreground">{risk.hint}</p>
         </CardContent>
       </Card>
+
+      {/* 机制②：照护对象履约风险预测 */}
+      {careRisk && <CareRiskCard result={careRisk} />}
 
       {/* 待我处理：升级任务（红色优先） */}
       <Card className="rounded-2xl">

@@ -1,5 +1,6 @@
 // CareLoop 前端数据访问层：所有 Supabase 查询与 Edge Function 调用统一入口
 import { supabase } from '@/db/supabase';
+import type { CareRiskRaw } from '@/lib/carerisk';
 
 // ===== 通用工具 =====
 
@@ -303,7 +304,61 @@ export const fnApi = {
   register: (body: Record<string, unknown>) => invokeFn<{ email: string }>('auth-register', body),
   parseDocument: (documentId: string) => invokeFn('parse-document', { document_id: documentId }),
   confirmPlan: (documentId: string, payload: Record<string, unknown>) => invokeFn('confirm-plan', { document_id: documentId, payload }),
-  triage: (body: Record<string, unknown>) => invokeFn<{ level: string; advice: string; evidence: string }>('triage-symptom', body),
+  triage: (body: Record<string, unknown>) =>
+    invokeFn<{
+      level: 'green' | 'yellow' | 'red';
+      advice: string;
+      evidence: string;
+      baseline: { available: boolean; metrics: BaselineMetric[] };
+    }>('triage-symptom', body),
   generateReport: (patientId: string, periodDays: number) =>
     invokeFn<{ report_id: string; content: { stats: unknown; summary: string } }>('generate-report', { patient_id: patientId, period_days: periodDays }),
 };
+
+// 个体基线指标（机制①）：患者本人 7 天滚动中位数 + 偏离带上下界
+export interface BaselineMetric {
+  metric: string;
+  median: number;
+  bandLow: number;
+  bandHigh: number;
+}
+
+// 读取患者个人基线；表不存在/无数据（迁移 00019 未应用或样本不足）时优雅降级返回空数组
+export async function getBaselines(patientId: string): Promise<BaselineMetric[]> {
+  const { data, error } = await supabase
+    .from('daily_baseline')
+    .select('metric, median, band_low, band_high')
+    .eq('patient_id', patientId);
+  if (error) return [];
+  return (data ?? []).map((b) => ({
+    metric: b.metric,
+    median: Number(b.median),
+    bandLow: Number(b.band_low),
+    bandHigh: Number(b.band_high),
+  }));
+}
+
+// ===== 机制② CareRisk 履约风险预测：原始轨迹输入 =====
+
+// 读取患者近 windowDays 天的本人轨迹（用药/打卡/症状 + 出院日），供 computeCareRisk 使用。
+// 表均为现有表，无需新增迁移；任意查询失败返回空结构，由调用方优雅降级。
+export async function getCareRiskInputs(patientId: string, windowDays = 14): Promise<CareRiskRaw> {
+  const sinceMs = Date.now() - windowDays * 86400000;
+  const sinceIso = new Date(sinceMs).toISOString();
+  const sinceDate = sinceIso.slice(0, 10);
+  const [plans, logs, checkins, symptoms, patient] = await Promise.all([
+    supabase.from('medication_plans').select('id, slots').eq('patient_id', patientId).eq('active', true),
+    supabase.from('medication_logs').select('plan_id, slot, action, log_date').eq('patient_id', patientId).gte('log_date', sinceDate),
+    supabase.from('checkins').select('created_at').eq('patient_id', patientId).gte('created_at', sinceIso),
+    supabase.from('symptom_checks').select('level, created_at').eq('patient_id', patientId).gte('created_at', sinceIso),
+    supabase.from('patients').select('discharge_date').eq('id', patientId).maybeSingle(),
+  ]);
+  const safe = <T>(d: unknown): T[] => (Array.isArray(d) ? (d as T[]) : []);
+  return {
+    plans: safe<{ id: string; slots: number[] | null }>(plans.data),
+    logs: safe<{ plan_id: string; slot: number; action: string; log_date: string }>(logs.data),
+    checkins: safe<{ created_at: string }>(checkins.data),
+    symptoms: safe<{ level: string; created_at: string }>(symptoms.data),
+    dischargeDate: (patient.data as { discharge_date?: string } | null)?.discharge_date ?? null,
+  };
+}

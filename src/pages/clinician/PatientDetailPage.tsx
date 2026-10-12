@@ -1,9 +1,11 @@
 // 患者 360 视图：档案 / 用药 / 随访 / 体征 / 事件 五页签，一次拉取全部数据
+
+import { ArrowLeft, FileText, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Users } from 'lucide-react';
+import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CareRiskCard } from '@/components/common/CareRiskCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,8 +13,9 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { clinicianApi } from '@/lib/api';
 import { supabase } from '@/db/supabase';
+import { BaselineMetric, clinicianApi, getBaselines, getCareRiskInputs } from '@/lib/api';
+import { type CareRiskResult, computeCareRisk } from '@/lib/carerisk';
 import { cn } from '@/lib/utils';
 
 // 与数据库真实列名一致的本地行类型
@@ -113,6 +116,10 @@ export function PatientDetailPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Detail | null>(null);
+  // 个人基线（机制①）：患者本人 7 天滚动中位数 + 偏离带
+  const [baselines, setBaselines] = useState<BaselineMetric[]>([]);
+  // 机制②：本人履约风险预测
+  const [careRisk, setCareRisk] = useState<CareRiskResult | null>(null);
   // 已绑定家属（M5：care_relations 照护协同信息）
   const [family, setFamily] = useState<FamilyRow[]>([]);
 
@@ -138,6 +145,16 @@ export function PatientDetailPage() {
           .select('id, family_name, relation, phone, status, authorized_at')
           .eq('patient_id', id);
         if (alive) setFamily((rel ?? []) as FamilyRow[]);
+        // 个人基线：表未应用迁移或样本不足时返回空，优雅降级
+        const bs = await getBaselines(id);
+        if (alive) setBaselines(bs);
+        // 机制②：本人轨迹预测，独立于基线，失败仅降级
+        try {
+          const cr = await getCareRiskInputs(id, 14);
+          if (alive) setCareRisk(computeCareRisk(cr, 14));
+        } catch {
+          if (alive) setCareRisk(null);
+        }
       } catch (e) {
         if (alive) toast.error(e instanceof Error ? e.message : '加载患者详情失败');
       } finally {
@@ -275,6 +292,9 @@ export function PatientDetailPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* 机制②：本人履约风险预测（放置在患者卡与五页签之间） */}
+      {careRisk && <CareRiskCard result={careRisk} />}
 
       {/* 五页签 */}
       <Tabs defaultValue="vitals" className="w-full min-w-0">
@@ -511,6 +531,16 @@ export function PatientDetailPage() {
                         <XAxis dataKey="label" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={44} domain={['auto', 'auto']} />
                         <Tooltip />
+                        {/* 机制①：叠加个人基线带（中线 + 偏离带），无基线时自动隐藏 */}
+                        {baselines.find((b) => b.metric === 'systolic') ? (() => {
+                          const s = baselines.find((b) => b.metric === 'systolic')!;
+                          return (
+                            <>
+                              <ReferenceArea y1={s.bandLow} y2={s.bandHigh} fill="hsl(var(--primary))" fillOpacity={0.08} ifOverflow="extendDomain" />
+                              <ReferenceLine y={s.median} stroke="hsl(var(--primary))" strokeDasharray="4 4" strokeOpacity={0.5} ifOverflow="extendDomain" />
+                            </>
+                          );
+                        })() : null}
                         <Line type="monotone" dataKey="systolic" name="收缩压" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                         <Line type="monotone" dataKey="diastolic" name="舒张压" stroke="hsl(var(--sig-rose))" strokeWidth={2} dot={false} />
                       </LineChart>
@@ -567,6 +597,20 @@ export function PatientDetailPage() {
                     </p>
                   </div>
                 ))}
+                {/* 机制①：个人基线面板（近 7 天滚动中位数 + 偏离带）*/}
+                {baselines.length > 0 ? (
+                  <div className="border-t border-border pt-3 space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">个人基线（近 7 天滚动）</p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs sig-num">
+                      {baselines.map((b) => (
+                        <span key={b.metric}>
+                          {({ systolic: '收缩压', diastolic: '舒张压', heart_rate: '心率', temperature: '体温', blood_glucose: '血糖' } as Record<string, string>)[b.metric] ?? b.metric}：<b>{b.median}</b>（带 {b.bandLow}–{b.bandHigh}）
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">我们不盯达标线，我们盯偏离——分级参考他自己过去 7 天的轨道。</p>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </div>

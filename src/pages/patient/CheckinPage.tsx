@@ -1,21 +1,22 @@
 // 健康打卡：每日体征记录 + 异常即时校验 + 近14天趋势图
+
+import { Activity, CalendarCheck2, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, CalendarCheck2, TriangleAlert } from 'lucide-react';
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
+import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
-import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
-import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { supabase } from '@/db/supabase';
-import { getMyPatient, patientApi } from '@/lib/api';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { getBaselines, getMyPatient, patientApi } from '@/lib/api';
 
 interface CheckinRow {
   systolic: number | null;
@@ -153,6 +154,8 @@ export function CheckinPage() {
   const [chart, setChart] = useState<ChartPoint[]>([]);
   const [chartStatus, setChartStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [chartRefreshing, setChartRefreshing] = useState(false);
+  // 个人基线（机制①）：收缩压 7 天中位数 + 偏离带，用于趋势图叠加参照
+  const [sysBaseline, setSysBaseline] = useState<{ median: number; bandLow: number; bandHigh: number } | null>(null);
 
   // 体征即时校验：体温 >37.3 或血压 ≥140/90 黄色提示；≥39 或 ≥180 红色危险
   const tempVal = num(temperature);
@@ -191,8 +194,14 @@ export function CheckinPage() {
         const p = await getMyPatient();
         if (!alive) return;
         setPatient(p);
-        if (p) await loadChart((p as { id: string }).id);
-        else setChartStatus('ready'); // 无档案：趋势区显示空态而非骨架
+        if (p) {
+          await loadChart((p as { id: string }).id);
+          // 个人基线：表未应用迁移或无样本时 getBaselines 返回空，优雅降级不显示基线带
+          const bs = await getBaselines((p as { id: string }).id);
+          setSysBaseline(bs.find((b) => b.metric === 'systolic') ?? null);
+        } else {
+          setChartStatus('ready'); // 无档案：趋势区显示空态而非骨架
+        }
       } catch {
         // 取患者档案失败不影响打卡表单；趋势区保留当前态
       }
@@ -384,6 +393,13 @@ export function CheckinPage() {
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {/* 机制①：叠加个人基线带（中线 + 偏离带），表未应用迁移时无基线自动隐藏 */}
+                  {sysBaseline ? (
+                    <>
+                      <ReferenceArea y1={sysBaseline.bandLow} y2={sysBaseline.bandHigh} fill="hsl(var(--primary))" fillOpacity={0.08} ifOverflow="extendDomain" />
+                      <ReferenceLine y={sysBaseline.median} stroke="hsl(var(--primary))" strokeDasharray="4 4" strokeOpacity={0.5} ifOverflow="extendDomain" />
+                    </>
+                  ) : null}
                   <Line type="monotone" dataKey="systolic" name="收缩压" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="diastolic" name="舒张压" stroke="hsl(var(--sig-rose))" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="heart_rate" name="心率" stroke="hsl(var(--triage-amber))" strokeWidth={2} dot={false} />

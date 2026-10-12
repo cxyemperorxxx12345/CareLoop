@@ -33,7 +33,17 @@ interface TriageResult {
   level: 'green' | 'yellow' | 'red';
   advice: string;
   evidence: string;
+  baseline?: { available: boolean; metrics: { metric: string; median: number; bandLow: number; bandHigh: number }[] };
 }
+
+// 体征指标中文名（与 daily_baseline.metric 对应）
+const METRIC_LABEL: Record<string, string> = {
+  systolic: '收缩压',
+  diastolic: '舒张压',
+  heart_rate: '心率',
+  temperature: '体温',
+  blood_glucose: '血糖',
+};
 
 const DURATIONS = ['1天内', '1-3天', '3-7天', '超过7天'] as const;
 
@@ -229,6 +239,20 @@ export function SymptomPage() {
               <p className="text-sm whitespace-pre-wrap text-foreground">{result.advice}</p>
               {result.evidence ? (
                 <p className="text-xs whitespace-pre-wrap text-muted-foreground">参考依据：{result.evidence}</p>
+              ) : null}
+              {/* 机制①：对照个人基线（近 7 天滚动中位数 + 偏离带）*/}
+              {result.baseline?.available ? (
+                <div className="space-y-1.5 border-t border-border pt-2">
+                  <p className="text-xs font-medium">对照您的个人基线（近 7 天）</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs sig-num">
+                    {result.baseline.metrics.map((b) => (
+                      <span key={b.metric}>
+                        {METRIC_LABEL[b.metric] ?? b.metric}：<b>{b.median}</b>（带 {b.bandLow}–{b.bandHigh}）
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">我们不盯达标线，我们盯偏离——分级参考您自己的历史轨道。</p>
+                </div>
               ) : null}
             </div>
             {/* 红色结果额外展示紧急联系人 */}
