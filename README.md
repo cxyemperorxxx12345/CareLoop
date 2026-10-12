@@ -62,7 +62,7 @@ Edge Function 侧密钥（Supabase 后台配置，不进仓库）：`SUPABASE_UR
 ├── supabase/
 │   ├── migrations/       # 00001–00018，按序号在 SQL Editor 依次应用
 │   ├── functions/        # Edge Functions（Deno），见下
-│   └── ops/              # full_schema_0001_0018.sql：全新库一次性全量合集
+│   └── ops/              # full_schema_0001_0020.sql：全新库一次性全量合集
 ├── docs/                 # 项目文档（见下方文档导航）
 ├── tasks/                # 比赛过程资产：需求/设计/截图脚本/评审截图（handoff.md 已过期）
 └── dist/                 # 构建产物（gitignore，勿手改）

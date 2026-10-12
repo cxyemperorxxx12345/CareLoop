@@ -86,9 +86,11 @@ export function AssistantPage() {
       const summary = content.slice(0, 120);
       const { error } = await supabase.rpc('patient_escalate_alert', { p_summary: summary });
       if (error) {
-        // 迁移 00020 未应用时函数不存在：给出可操作提示，而非裸错误码
-        if (/patient_escalate_alert/.test(error.message)) {
-          throw new Error('同步通道未启用：请在 Supabase SQL Editor 执行 ops/PENDING_apply_now.sql（含迁移 00020）');
+        // 迁移 00020 未应用时函数不存在（PGRST202 / 404）：按错误码识别，
+        // 给患者能听懂的话术 + 可立即替代的通道，而非裸错误码
+        const rpcMissing = error.code === 'PGRST202' || /patient_escalate_alert|Could not find the function/i.test(error.message);
+        if (rpcMissing) {
+          throw new Error('同步通道暂未开通。您可以现在用「随访」页的症状自查上报不适，医护端同样能看到；系统管理员在后台启用同步功能后此按钮即可使用');
         }
         throw new Error(error.message);
       }

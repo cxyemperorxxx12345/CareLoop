@@ -1,10 +1,10 @@
 -- ============================================================================
--- CareLoop 全量迁移合集（00001 ~ 00019）
+-- CareLoop 全量迁移合集（00001 ~ 00020）
 -- 适用场景：全新的 Supabase 项目（supabase.com 免费版 / 自有实例）
 --           在 SQL Editor 中「一次性全选粘贴 → Run」即可。
 --
 -- 说明：
---   - 顺序严格保持 00001 → 00019。
+--   - 顺序严格保持 00001 → 00020。
 --   - 全部语句幂等（CREATE OR REPLACE / ADD COLUMN IF NOT EXISTS / ON CONFLICT）。
 --   - 不含任何 DELETE / TRUNCATE / DROP TABLE，不触碰 auth.users 登录凭证。
 --   - 本文件依赖 Supabase 自带的 auth / storage / extensions 模式，
