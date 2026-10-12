@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import IntersectObserver from '@/components/common/IntersectObserver';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -40,6 +41,16 @@ function TitleSetter() {
   return null;
 }
 
+// 路由懒加载占位：页面 chunk 加载中显示（只占内容区，不触发底部导航布局位移）
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center p-4" role="status" aria-live="polite">
+      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <span className="sr-only">加载中</span>
+    </div>
+  );
+}
+
 const App: React.FC = () => {
   return (
     <Router>
@@ -49,6 +60,7 @@ const App: React.FC = () => {
           <IntersectObserver />
           <div className="flex flex-col min-h-screen">
             <main className="flex-grow">
+              <Suspense fallback={<RouteFallback />}>
               <Routes>
                 {routes.map((route, index) => (
                   <Route
@@ -67,6 +79,7 @@ const App: React.FC = () => {
                 ))}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              </Suspense>
             </main>
           </div>
           <Toaster duration={3000} richColors closeButton={false} />

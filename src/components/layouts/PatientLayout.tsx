@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { CalendarHeart, Home, MessageCircle, Pill, Stethoscope } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/db/supabase';
 import { patientApi } from '@/lib/api';
 
 const TABS = [
@@ -20,7 +21,6 @@ export function PatientLayout() {
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
     const refresh = async () => {
-      const { supabase } = await import('@/db/supabase');
       const { data } = await supabase.auth.getUser();
       const uid = data.user?.id;
       if (!uid) return;

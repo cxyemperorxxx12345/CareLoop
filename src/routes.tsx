@@ -1,28 +1,31 @@
-import { type ReactNode } from 'react';
+import { lazy, type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { PatientLayout } from './components/layouts/PatientLayout';
 import { ClinicianLayout } from './components/layouts/ClinicianLayout';
-import { DashboardPage } from './pages/patient/DashboardPage';
-import { DocumentsPage } from './pages/patient/DocumentsPage';
-import { MedicationsPage } from './pages/patient/MedicationsPage';
-import { FollowupPage } from './pages/patient/FollowupPage';
-import { AssistantPage } from './pages/patient/AssistantPage';
-import { SymptomPage } from './pages/patient/SymptomPage';
-import { CheckinPage } from './pages/patient/CheckinPage';
-import { MessagesPage } from './pages/patient/MessagesPage';
-import { PatientsPage } from './pages/clinician/PatientsPage';
-import { PatientDetailPage } from './pages/clinician/PatientDetailPage';
-import { AlertsPage } from './pages/clinician/AlertsPage';
-import { ReportsPage } from './pages/clinician/ReportsPage';
-import { KnowledgePage } from './pages/clinician/KnowledgePage';
-import { ClinicianDashboardPage } from './pages/clinician/ClinicianDashboardPage';
 import { FamilyLayout } from './components/layouts/FamilyLayout';
-import { FamilyDashboardPage } from './pages/family/FamilyDashboardPage';
-import { FamilyMedicationsPage } from './pages/family/FamilyMedicationsPage';
-import { FamilyTasksPage } from './pages/family/FamilyTasksPage';
-import { FamilyMessagesPage } from './pages/family/FamilyMessagesPage';
+
+// 路由级代码分割：各页面按需加载，把首屏从「全量打包」拆成入口 + 每页独立 chunk，
+// 使 recharts / video-react / streamdown 等重依赖只在进入对应页面时才加载。
+const DashboardPage = lazy(() => import('./pages/patient/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const DocumentsPage = lazy(() => import('./pages/patient/DocumentsPage').then((m) => ({ default: m.DocumentsPage })));
+const MedicationsPage = lazy(() => import('./pages/patient/MedicationsPage').then((m) => ({ default: m.MedicationsPage })));
+const FollowupPage = lazy(() => import('./pages/patient/FollowupPage').then((m) => ({ default: m.FollowupPage })));
+const AssistantPage = lazy(() => import('./pages/patient/AssistantPage').then((m) => ({ default: m.AssistantPage })));
+const SymptomPage = lazy(() => import('./pages/patient/SymptomPage').then((m) => ({ default: m.SymptomPage })));
+const CheckinPage = lazy(() => import('./pages/patient/CheckinPage').then((m) => ({ default: m.CheckinPage })));
+const MessagesPage = lazy(() => import('./pages/patient/MessagesPage').then((m) => ({ default: m.MessagesPage })));
+const ClinicianDashboardPage = lazy(() => import('./pages/clinician/ClinicianDashboardPage').then((m) => ({ default: m.ClinicianDashboardPage })));
+const PatientsPage = lazy(() => import('./pages/clinician/PatientsPage').then((m) => ({ default: m.PatientsPage })));
+const PatientDetailPage = lazy(() => import('./pages/clinician/PatientDetailPage').then((m) => ({ default: m.PatientDetailPage })));
+const AlertsPage = lazy(() => import('./pages/clinician/AlertsPage').then((m) => ({ default: m.AlertsPage })));
+const ReportsPage = lazy(() => import('./pages/clinician/ReportsPage').then((m) => ({ default: m.ReportsPage })));
+const KnowledgePage = lazy(() => import('./pages/clinician/KnowledgePage').then((m) => ({ default: m.KnowledgePage })));
+const FamilyDashboardPage = lazy(() => import('./pages/family/FamilyDashboardPage').then((m) => ({ default: m.FamilyDashboardPage })));
+const FamilyMedicationsPage = lazy(() => import('./pages/family/FamilyMedicationsPage').then((m) => ({ default: m.FamilyMedicationsPage })));
+const FamilyTasksPage = lazy(() => import('./pages/family/FamilyTasksPage').then((m) => ({ default: m.FamilyTasksPage })));
+const FamilyMessagesPage = lazy(() => import('./pages/family/FamilyMessagesPage').then((m) => ({ default: m.FamilyMessagesPage })));
 
 export interface RouteConfig {
   name: string;
