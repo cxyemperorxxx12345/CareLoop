@@ -162,14 +162,6 @@ All colors MUST be HSL.
 }
 
 /* ===== SIGNATURE-CSS:BEGIN (CareLoop Split Screen) ===== */
-.sig-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 13px;
-  font-weight: 500;
-  color: hsl(var(--muted-foreground));
-}
 .sig-soft-bg {
   background: hsl(var(--sig-rose-soft));
 }

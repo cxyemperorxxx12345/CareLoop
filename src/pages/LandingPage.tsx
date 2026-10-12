@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, Clock, AlertTriangle, ShieldAlert, Users, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Check, Clock, AlertTriangle, Users, ChevronRight } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
   // 升级链路：一次渲染一张、滑动/入口切换
@@ -9,18 +9,21 @@ export const LandingPage: React.FC = () => {
   // 三级响应链数据（L0 是提醒本身不计级；漏服后 10 分钟/30 分钟/1 小时逐级升级）
   const ESC_STEPS = [
     {
-      time: '漏服后 · 每 10 分钟',
-      title: '第 1 级 · 提醒患者本人',
+      step: '第 1 级',
+      time: '漏服后每 10 分钟',
+      title: '第 1 级：提醒患者本人',
       body: '漏服发生，系统每 10 分钟向患者端推送一次打卡提醒，可「已服用 / 稍后提醒 / 跳过」。',
     },
     {
+      step: '第 2 级',
       time: '30 分钟无响应',
-      title: '第 2 级 · 请家属协助',
+      title: '第 2 级：请家属协助',
       body: '家属端收到协助任务，查看照护对象今日状态，可代打卡、电话联系，或反馈仍无响应。',
     },
     {
+      step: '第 3 级',
       time: '1 小时无响应',
-      title: '第 3 级 · 医护端介入',
+      title: '第 3 级：医护端介入',
       body: '漏服事件升级到医护工作台预警中心，护士准备电话随访，录入处置结论后闭环解除。',
     },
   ];
@@ -68,68 +71,68 @@ export const LandingPage: React.FC = () => {
         {/* 首屏合规提示条（L1：截图可见合规） */}
         <div className="border-t border-border bg-triage-blue-bg">
           <p className="container py-2 text-center text-xs font-medium text-triage-blue">
-            本内容不构成医疗诊断，请遵医嘱 · 演示数据均为虚构脱敏
+            本内容不构成医疗诊断，请遵医嘱；演示数据均为虚构脱敏
           </p>
         </div>
       </header>
 
       <main className="flex-1 w-full max-w-full overflow-x-hidden">
-        {/* Section 0: 品牌字 + 一句话定位（唯一重音：实色「愈见」与闭环弧线签名） */}
+        {/* Section 0: 品牌与定位（左对齐开场——不用居中 logo 墙 + 胶囊按钮的默认模板） */}
         <section id="positioning" className="relative w-full max-w-full overflow-hidden">
-          <div className="container py-20 md:py-28 text-center">
-            <h1 className="font-black leading-[1.1] tracking-tight text-[clamp(3.2rem,11vw,7.5rem)]">
-              <span className="relative inline-block">
-                {/* 闭环弧线：CareLoop 的签名图形——全页唯一的重音装饰，其余保持安静 */}
-                <svg
-                  aria-hidden
-                  viewBox="0 0 220 120"
-                  preserveAspectRatio="none"
-                  className="pointer-events-none absolute left-1/2 top-1/2 h-[1.2em] w-[2.24em] -translate-x-1/2 -translate-y-1/2 text-primary/20"
-                >
-                  <path
-                    d="M 187 25 A 100 55 0 1 0 160 108"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                  <path
-                    d="M 144 105 L 160 108 L 154 123"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
-                <span className="relative text-primary">愈见</span>
-              </span>
-              <span className="ml-4 align-middle text-[clamp(1.3rem,3.5vw,2.4rem)] font-bold text-muted-foreground">CareLoop</span>
-            </h1>
-            <p className="mt-6 text-[16px] md:text-lg leading-[1.9] text-muted-foreground max-w-2xl mx-auto">
-              一份出院小结，连接患者、家属与医护三方——AI 结构化生成用药与随访计划，到点提醒、逐级升级、症状分诊、预警处置，把出院后的每一天都装进闭环。
-            </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link
-                to="/login?role=patient"
-                className="rounded-full bg-primary text-primary-foreground font-medium px-7 py-3 text-[15px] hover:brightness-95 transition-all"
-              >
-                患者端 · 开始使用
-              </Link>
-              <Link
-                to="/login?role=family"
-                className="rounded-full border border-border font-medium px-7 py-3 text-[15px] hover:border-primary/50 transition-colors"
-              >
-                家属端 · 照护协同
-              </Link>
-              <Link
-                to="/login?role=clinician"
-                className="rounded-full border border-border font-medium px-7 py-3 text-[15px] hover:border-primary/50 transition-colors"
-              >
-                医护端 · 登录工作台
-              </Link>
+          <div className="container pt-16 pb-10 md:pt-24 md:pb-14">
+            <div className="max-w-3xl">
+              <h1 className="font-black leading-[1.05] tracking-tight text-[clamp(2.8rem,9vw,6rem)]">
+                <span className="relative inline-block">
+                  {/* 闭环弧线：CareLoop 的唯一视觉签名，全页重音集中于此 */}
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 220 120"
+                    preserveAspectRatio="none"
+                    className="pointer-events-none absolute left-1/2 top-1/2 h-[1.2em] w-[2.24em] -translate-x-1/2 -translate-y-1/2 text-primary/20"
+                  >
+                    <path
+                      d="M 187 25 A 100 55 0 1 0 160 108"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <path
+                      d="M 144 105 L 160 108 L 154 123"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
+                  <span className="relative text-primary">愈见</span>
+                </span>
+                <span className="ml-3 align-middle text-[clamp(1.1rem,2.8vw,1.9rem)] font-bold text-muted-foreground">
+                  CareLoop
+                </span>
+              </h1>
+              <p className="mt-7 max-w-2xl text-[17px] md:text-xl leading-[1.75] text-foreground/75">
+                出院小结拍照上传，愈见把它整理成一份明天就能执行的用药与随访计划。到点提醒、漏服升级、症状分诊，
+                患者、家属和医护在同一页上接力。
+              </p>
+              <div className="mt-8 flex flex-wrap items-baseline gap-x-7 gap-y-2 text-[15px] font-bold">
+                <Link to="/login?role=patient" className="text-primary hover:underline underline-offset-4">
+                  我是患者
+                </Link>
+                <Link to="/login?role=family" className="text-foreground/70 hover:text-foreground">
+                  我是家属
+                </Link>
+                <Link to="/login?role=clinician" className="text-foreground/70 hover:text-foreground">
+                  医护登录
+                </Link>
+              </div>
+            </div>
+            <div className="mt-12 flex flex-wrap items-center justify-between gap-x-8 gap-y-2 border-t border-border pt-4 text-[13px] text-muted-foreground">
+              <span>覆盖出院后 1–8 周的高频风险窗</span>
+              <span>患者、家属、医护共用同一份计划</span>
             </div>
           </div>
         </section>
@@ -138,13 +141,9 @@ export const LandingPage: React.FC = () => {
         <section id="hero" className="relative w-full max-w-full overflow-hidden">
           <div className="grid md:grid-cols-3 min-h-[34rem] md:min-h-[38rem]">
             {/* 左：患者端 */}
-            <div className="sig-soft-bg p-7 md:p-10 flex flex-col animate-curtain-left">
-              <p className="sig-eyebrow">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-                <span className="font-bold text-foreground">患者端</span>
-                <span>移动优先</span>
-              </p>
-              <h2 className="mt-4 font-black text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.3]">
+            <div className="sig-soft-bg p-7 md:p-10 flex flex-col">
+              <p className="text-[13px] font-bold text-primary">患者端</p>
+              <h2 className="mt-2 font-black text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.3]">
                 看得懂的
                 <br />
                 康复计划
@@ -163,7 +162,7 @@ export const LandingPage: React.FC = () => {
                       <p className="text-[12px] sig-num text-primary-foreground/80">术后第 9 天</p>
                     </div>
                     <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                      <div className="rounded-2xl bg-white p-3 border border-border/60">
                         <p className="text-[11px] text-muted-foreground">今晨用药 · 08:00 · 已确认</p>
                         <p className="text-[13px] font-black mt-0.5 truncate">硫酸氢氯吡格雷片 75mg</p>
                         <div className="mt-2 flex gap-1.5">
@@ -175,7 +174,7 @@ export const LandingPage: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                      <div className="rounded-2xl bg-white p-3 border border-border/60">
                         <p className="text-[11px] text-muted-foreground">血压打卡</p>
                         <p className="text-[13px] font-black mt-0.5 sig-num">138/86 mmHg</p>
                       </div>
@@ -189,13 +188,9 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* 中：家属端 */}
-            <div className="border-t md:border-t-0 md:border-x border-border sig-mid-bg p-7 md:p-10 flex flex-col animate-fade-rise">
-              <p className="sig-eyebrow">
-                <span className="h-1.5 w-1.5 rounded-full bg-triage-amber" aria-hidden />
-                <span className="font-bold text-foreground">家属端</span>
-                <span>照护协同</span>
-              </p>
-              <h2 className="mt-4 font-black text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.3]">
+            <div className="border-t md:border-t-0 md:border-x border-border sig-mid-bg p-7 md:p-10 flex flex-col">
+              <p className="text-[13px] font-bold text-triage-amber">家属端</p>
+              <h2 className="mt-2 font-black text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.3]">
                 帮得上忙的
                 <br />
                 家属协助
@@ -214,7 +209,7 @@ export const LandingPage: React.FC = () => {
                       <p className="text-[12px] sig-num text-white/80">待处理 1</p>
                     </div>
                     <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                      <div className="rounded-2xl bg-white p-3 border border-border/60">
                         <p className="text-[11px] font-medium text-triage-amber">【待家属协助】睡前 21:00</p>
                         <p className="text-[13px] font-black mt-0.5 truncate">阿托伐他汀 20mg</p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">超过 30 分钟未确认，请协助</p>
@@ -224,7 +219,7 @@ export const LandingPage: React.FC = () => {
                         <span className="rounded-xl border border-border text-[11px] font-medium px-2 py-1.5 text-center">已联系</span>
                         <span className="rounded-xl border border-border text-[11px] font-medium px-2 py-1.5 text-center">转医护</span>
                       </div>
-                      <div className="rounded-2xl bg-white p-3 shadow-sm">
+                      <div className="rounded-2xl bg-white p-3 border border-border/60">
                         <p className="text-[11px] text-muted-foreground">今日照护 · 陈桂芳</p>
                         <p className="text-[13px] font-black mt-0.5 sig-num">已服 3/4 次</p>
                       </div>
@@ -235,13 +230,9 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* 右：医护端 */}
-            <div className="sig-deep-bg p-7 md:p-10 flex flex-col animate-curtain-right">
-              <p className="sig-eyebrow sig-deep-muted">
-                <span className="h-1.5 w-1.5 rounded-full bg-foreground" aria-hidden />
-                <span className="font-bold">医护端</span>
-                <span>Web 工作台</span>
-              </p>
-              <h2 className="mt-4 font-black text-[clamp(1.7rem,3vw,2.4rem)] leading-[1.3]">
+            <div className="sig-deep-bg p-7 md:p-10 flex flex-col">
+              <p className="text-[13px] font-bold sig-deep-muted">医护端</p>
+              <h2 className="mt-2 font-black text-[clamp(1.7rem,3vw,2.4rem)] leading-[1.3]">
                 看得见的
                 <br />
                 风险信号
@@ -252,10 +243,10 @@ export const LandingPage: React.FC = () => {
               <div className="mt-auto pt-8 space-y-3 max-w-md w-full md:ml-auto">
                 <div className="rounded-2xl p-4 bg-sig-deep-card border border-sig-deep-border">
                   <div className="flex items-center gap-3">
-                    <span className="text-[12px] font-medium tracking-widest rounded-full px-3 py-1 bg-triage-red-bg text-triage-red">
-                      RED
+                    <span className="text-[12px] font-bold rounded-full px-3 py-1 bg-triage-red-bg text-triage-red">
+                      红色预警
                     </span>
-                    <p className="font-black text-foreground text-[15px]">陈桂芳 · 术后第 9 天 · 今晨自查</p>
+                    <p className="font-black text-foreground text-[15px]">陈桂芳，术后第 9 天，今晨自查</p>
                   </div>
                   <p className="sig-deep-muted mt-2 text-[13px] leading-[1.7]">
                     晨起胸闷、活动后气短，近 3 日收缩压 136-142mmHg，红旗规则直判，建议立即就医
@@ -263,10 +254,10 @@ export const LandingPage: React.FC = () => {
                 </div>
                 <div className="rounded-2xl p-4 bg-sig-deep-card border border-sig-deep-border">
                   <div className="flex items-center gap-3">
-                    <span className="text-[12px] font-medium tracking-widest rounded-full px-3 py-1 bg-triage-amber-bg text-triage-amber">
-                      YELLOW
+                    <span className="text-[12px] font-bold rounded-full px-3 py-1 bg-triage-amber-bg text-triage-amber">
+                      黄色预警
                     </span>
-                    <p className="font-black text-foreground text-[15px]">周建国 · 59 岁 · 高血压 3 级</p>
+                    <p className="font-black text-foreground text-[15px]">周建国，59 岁，高血压 3 级</p>
                   </div>
                   <p className="sig-deep-muted mt-2 text-[13px] leading-[1.7]">
                     近 3 日收缩压 152-163mmHg，血压控制不稳，建议加密随访
@@ -278,15 +269,11 @@ export const LandingPage: React.FC = () => {
         </section>
 
         {/* Section 2: Loop */}
-        <section id="loop" className="py-14 md:py-20">
+        <section id="loop" className="py-16 md:py-24">
           <div className="container">
             <div className="max-w-2xl">
-              <p className="sig-eyebrow">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-                核心闭环
-              </p>
-              <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
-                一份出院小结，<span className="text-primary">跑完八步闭环</span>
+              <h2 className="font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
+                一份出院小结，跑完八步闭环
               </h2>
             </div>
             <div className="mt-10">
@@ -310,7 +297,7 @@ export const LandingPage: React.FC = () => {
                       sub: '手机端',
                       cells: [
                         ['拍照上传出院小结', 'AI 解析出计划草稿'],
-                        ['到点提醒 · 一键打卡', '体征记录 · 助手随问随答'],
+                        ['到点提醒，一键打卡', '体征记录，助手随问随答'],
                         ['漏服后每 10 分钟提醒本人', '打卡即终止整条链路'],
                         ['症状自查红黄绿分级', '随访报告随时查看'],
                       ],
@@ -332,7 +319,7 @@ export const LandingPage: React.FC = () => {
                         ['人工校对，计划生效', '维护患者档案'],
                         ['360 视图监控依从率', '预警中心集中待办'],
                         ['1 小时无响应生成预警', '电话随访并录入处置'],
-                        ['黄色 24h 随访 · 红色即时', '处置完成闭环解除'],
+                        ['黄色 24h 随访，红色即时', '处置完成闭环解除'],
                       ],
                     },
                   ].map((r) => (
@@ -364,19 +351,15 @@ export const LandingPage: React.FC = () => {
           </div>
         </section>
 
-        {/* Section 2.5: 产品实景展示（愈见 CareLoop 自研界面高保真实景，严格居中自适应） */}
-        <section id="showcase" className="py-12 md:py-20 bg-card/60 border-y border-border w-full max-w-full overflow-hidden">
+        {/* Section 2.5: 产品实景展示（愈见 CareLoop 自研界面高保真实景） */}
+        <section id="showcase" className="py-16 md:py-20 bg-card/60 border-y border-border w-full max-w-full overflow-hidden">
           <div className="container max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="max-w-2xl mx-auto text-center">
-              <p className="sig-eyebrow justify-center">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-                产品实景
-              </p>
-              <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
-                两部手机，<span className="text-primary">一台电脑</span>
+            <div className="max-w-2xl">
+              <h2 className="font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
+                两部手机，一台电脑
               </h2>
               <p className="mt-4 text-muted-foreground text-[15px] leading-[1.85]">
-                患者与家属用手机照护日常，医护在电脑工作台上掌控全局——三端数据实时同步。
+                患者与家属用手机照护日常，医护在电脑工作台上掌控全局，三端数据实时同步。
               </p>
             </div>
 
@@ -411,7 +394,7 @@ export const LandingPage: React.FC = () => {
                     </div>
 
                     {/* 患者状态概览卡 */}
-                    <div className="rounded-xl bg-card border border-border p-2.5 shadow-sm">
+                    <div className="rounded-xl bg-card border border-border p-2.5">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-foreground text-[12px]">陈桂芳 · 68 岁</span>
                         <span className="text-[10px] text-muted-foreground">术后第 9 天</span>
@@ -477,8 +460,8 @@ export const LandingPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <p className="mt-3 text-sm font-bold text-foreground">患者端 · 移动界面实景</p>
-                <p className="text-xs text-muted-foreground mt-0.5">清晰计划 · 到点打卡 · 智能自查</p>
+                <p className="mt-3 text-sm font-bold text-foreground">患者端界面</p>
+                <p className="text-xs text-muted-foreground mt-0.5">清晰计划、到点打卡、智能自查</p>
               </div>
 
               {/* 家属端实景手机模型（待我处理 + 三动作） */}
@@ -498,7 +481,7 @@ export const LandingPage: React.FC = () => {
                       <p className="text-[9px] text-white/80 mt-0.5">仅可代打卡与响应，不改医嘱</p>
                     </div>
                     {/* 照护对象状态卡 */}
-                    <div className="rounded-xl bg-card border border-border p-2.5 shadow-sm">
+                    <div className="rounded-xl bg-card border border-border p-2.5">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-foreground text-[12px]">陈桂芳 · 68 岁</span>
                         <span className="text-[10px] text-muted-foreground">术后第 9 天</span>
@@ -535,8 +518,8 @@ export const LandingPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <p className="mt-3 text-sm font-bold text-foreground">家属端 · 照护协同实景</p>
-                <p className="text-xs text-muted-foreground mt-0.5">代打卡 · 响应任务 · 实时掌握进度</p>
+                <p className="mt-3 text-sm font-bold text-foreground">家属端界面</p>
+                <p className="text-xs text-muted-foreground mt-0.5">代打卡、响应任务、实时掌握进度</p>
               </div>
 
               {/* 医护端 Mac 电脑网页版模型（屏幕 + 支架底座，体现桌面使用形态） */}
@@ -662,23 +645,19 @@ export const LandingPage: React.FC = () => {
                   <div className="mx-auto h-4 w-24 bg-gradient-to-b from-neutral-300 to-neutral-500 rounded-b-lg rounded-t-sm shadow-md" />
                   <div className="mx-auto h-1.5 w-44 bg-gradient-to-b from-neutral-400 to-neutral-600 rounded-b-full shadow-sm" />
                 </div>
-                <p className="mt-3 text-sm font-bold text-foreground">医护端 · 电脑网页版实景</p>
-                <p className="text-xs text-muted-foreground mt-0.5">宽屏工作台 · 预警中心 · 患者 360</p>
+                <p className="mt-3 text-sm font-bold text-foreground">医护端网页版</p>
+                <p className="text-xs text-muted-foreground mt-0.5">宽屏工作台、预警中心、患者 360</p>
               </div>
             </div>
           </div>
         </section>
 
         {/* Section 3: Escalation */}
-        <section id="escalation" className="py-14 md:py-20 bg-secondary/50">
+        <section id="escalation" className="py-16 md:py-24 bg-secondary/50">
           <div className="container">
             <div className="max-w-2xl">
-              <p className="sig-eyebrow">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-                升级链路
-              </p>
-              <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
-                一次漏服，<span className="text-primary">三方接力</span>
+              <h2 className="font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
+                一次漏服，三方接力
               </h2>
               <p className="mt-4 text-muted-foreground text-[15px] leading-[1.85]">
                 漏服后每 10 分钟提醒本人打卡；30 分钟无响应请家属协助；1 小时无响应医护端开始处理。任意时刻打卡确认，整条链路立即终止。
@@ -700,7 +679,7 @@ export const LandingPage: React.FC = () => {
                           : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground'
                       }`}
                     >
-                      {s.title.split(' · ')[0]}
+                      {s.step}
                     </button>
                   ))}
                 </div>
@@ -747,87 +726,71 @@ export const LandingPage: React.FC = () => {
         </section>
 
         {/* Section 4: Triage */}
-        <section id="triage" className="py-14 md:py-20">
+        <section id="triage" className="py-16 md:py-24">
           <div className="container">
             <div className="max-w-2xl">
-              <p className="sig-eyebrow">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-                症状自查
-              </p>
-              <h2 className="mt-4 font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
-                症状一勾，<span className="text-primary">风险自明</span>
+              <h2 className="font-black text-[clamp(1.6rem,3.2vw,2.4rem)] leading-[1.28]">
+                症状一勾，风险自明
               </h2>
               <p className="mt-4 text-muted-foreground text-[15px] leading-[1.85]">
                 基于出院分诊标准智能评估，轻微症状居家观察、异常指标电话随访、危险信号立即就医并直通医护。
               </p>
             </div>
-            <div className="mt-10 grid md:grid-cols-3 gap-4 md:gap-5">
-              <div className="rounded-3xl p-7 bg-triage-green-bg border border-triage-green/20">
-                <span className="w-10 h-10 rounded-full bg-white/80 grid place-items-center">
-                  <CheckCircle2 className="h-5 w-5 text-triage-green" />
-                </span>
-                <h3 className="mt-4 font-black text-xl text-triage-green">绿色 · 居家观察</h3>
-                <p className="mt-3 text-[15px] leading-[1.85] text-foreground/70">
+            <div className="mt-10 border-t border-border">
+              <div className="grid gap-x-8 gap-y-2 border-b border-border py-6 md:grid-cols-[10rem_1fr_11rem] md:items-baseline">
+                <p className="flex items-center gap-2 font-black text-lg text-triage-green">
+                  <span className="h-2.5 w-2.5 rounded-full bg-triage-green" aria-hidden />
+                  绿色：居家观察
+                </p>
+                <p className="text-[15px] leading-[1.8] text-foreground/75">
                   症状轻、生命体征平稳。按计划继续打卡用药与体征记录，注意休息。
                 </p>
-                <p className="mt-5 text-[13px] font-medium rounded-full bg-white/70 px-4 py-2 w-fit text-triage-green">
-                  不上报，继续观察
-                </p>
+                <p className="text-[14px] font-bold text-triage-green md:text-right">不上报，继续观察</p>
               </div>
-              <div className="rounded-3xl p-7 bg-triage-amber-bg border border-triage-amber/20">
-                <span className="w-10 h-10 rounded-full bg-white/80 grid place-items-center">
-                  <AlertTriangle className="h-5 w-5 text-triage-amber" />
-                </span>
-                <h3 className="mt-4 font-black text-xl text-triage-amber">黄色 · 联系随访</h3>
-                <p className="mt-3 text-[15px] leading-[1.85] text-foreground/70">
+              <div className="grid gap-x-8 gap-y-2 border-b border-border py-6 md:grid-cols-[10rem_1fr_11rem] md:items-baseline">
+                <p className="flex items-center gap-2 font-black text-lg text-triage-amber">
+                  <span className="h-2.5 w-2.5 rounded-full bg-triage-amber" aria-hidden />
+                  黄色：联系随访
+                </p>
+                <p className="text-[15px] leading-[1.8] text-foreground/75">
                   中度风险或指标波动。生成黄色风险预警单（区别于漏服产生的依从性预警），护士 24 小时内电话随访评估。
                 </p>
-                <p className="mt-5 text-[13px] font-medium rounded-full bg-white/70 px-4 py-2 w-fit text-triage-amber">
-                  自动上报医护端
-                </p>
+                <p className="text-[14px] font-bold text-triage-amber md:text-right">自动上报医护端</p>
               </div>
-              <div className="rounded-3xl p-7 bg-triage-red-bg border border-triage-red/20">
-                <span className="w-10 h-10 rounded-full bg-white/80 grid place-items-center">
-                  <ShieldAlert className="h-5 w-5 text-triage-red" />
-                </span>
-                <h3 className="mt-4 font-black text-xl text-triage-red">红色 · 立即就医</h3>
-                <p className="mt-3 text-[15px] leading-[1.85] text-foreground/70">
+              <div className="grid gap-x-8 gap-y-2 border-b border-border py-6 md:grid-cols-[10rem_1fr_11rem] md:items-baseline">
+                <p className="flex items-center gap-2 font-black text-lg text-triage-red">
+                  <span className="h-2.5 w-2.5 rounded-full bg-triage-red" aria-hidden />
+                  红色：立即就医
+                </p>
+                <p className="text-[15px] leading-[1.8] text-foreground/75">
                   命中红旗关键词或体征超红线。实时推送医护站并同步紧急联系人。
                 </p>
-                <p className="mt-5 text-[13px] font-medium rounded-full bg-white/70 px-4 py-2 w-fit text-triage-red">
-                  高优先级红旗事件
-                </p>
+                <p className="text-[14px] font-bold text-triage-red md:text-right">高优先级红旗事件</p>
               </div>
             </div>
           </div>
         </section>
 
         {/* Section 5: CTA */}
-        <section id="cta" className="py-14 md:py-20">
+        <section id="cta" className="py-16 md:py-24 border-t border-border">
           <div className="container">
-            <div className="rounded-[2rem] bg-card border border-border p-10 md:p-14 text-center">
-            <h2 className="font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.28]">三方协同，闭环合一</h2>
-              <p className="mt-4 text-muted-foreground text-[15px] leading-[1.85] max-w-xl mx-auto">
+            <div className="max-w-2xl">
+              <h2 className="font-black text-[clamp(1.7rem,3.4vw,2.6rem)] leading-[1.25]">三方协同，闭环合一</h2>
+              <p className="mt-4 text-[15px] leading-[1.85] text-muted-foreground">
                 出院后那几周，患者不再单打独斗，家属不再干着急，医护不再凭电话追踪。上传出院小结，剩下的交给愈见。
               </p>
-              <div className="mt-7 flex flex-wrap justify-center gap-3">
+              <div className="mt-8 flex flex-wrap items-baseline gap-x-7 gap-y-3 text-[15px] font-bold">
                 <Link
                   to="/login?role=patient"
-                  className="rounded-full bg-primary text-primary-foreground font-medium px-7 py-3 text-[15px] hover:brightness-95 transition-all"
+                  className="rounded-full bg-primary text-primary-foreground px-6 py-3 hover:brightness-95 transition-all"
                 >
-                  患者端 · 开始使用
+                  患者端开始
                 </Link>
-                <Link
-                  to="/login?role=family"
-                  className="rounded-full border border-border font-medium px-7 py-3 text-[15px] hover:border-primary/50 transition-colors"
-                >
-                  家属端 · 照护协同
+                <Link to="/login?role=family" className="text-foreground/70 hover:text-foreground">
+                  家属端
                 </Link>
-                <Link
-                  to="/login?role=clinician"
-                  className="rounded-full border border-border font-medium px-7 py-3 text-[15px] hover:border-primary/50 transition-colors"
-                >
-                  医护端 · 登录工作台
+                <Link to="/login?role=clinician" className="text-foreground/70 hover:text-foreground">
+                  医护端
                 </Link>
               </div>
             </div>
@@ -838,7 +801,7 @@ export const LandingPage: React.FC = () => {
       <footer className="py-8 border-t border-border">
         <div className="container flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            © 2026 愈见 CareLoop · iCAN AI 无代码智能体挑战赛 · 演示数据均为虚构脱敏
+            © 2026 愈见 CareLoop，iCAN AI 无代码智能体挑战赛，演示数据均为虚构脱敏
           </p>
         </div>
       </footer>

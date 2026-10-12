@@ -31,14 +31,14 @@ export const LoginPage: React.FC = () => {
   // 三身份演示账号清单（只展示当前所选身份的账号）
   const DEMO_ACCOUNTS: Record<'patient' | 'family' | 'clinician', Array<{ username: string; password: string; name: string; desc: string }>> = {
     patient: [
-      { username: 'guifang', password: 'GuiFang@CareLoop2026', name: '陈桂芳', desc: '68 岁 · 冠脉搭桥术后第 9 天' },
-      { username: 'jianguo', password: 'JianGuo@CareLoop2026', name: '周建国', desc: '59 岁 · 高血压 3 级' },
+      { username: 'guifang', password: 'GuiFang@CareLoop2026', name: '陈桂芳', desc: '68 岁，冠脉搭桥术后第 9 天' },
+      { username: 'jianguo', password: 'JianGuo@CareLoop2026', name: '周建国', desc: '59 岁，高血压 3 级' },
     ],
     family: [
-      { username: 'chenming', password: 'ChenMing@CareLoop2026', name: '陈明', desc: '陈桂芳之子 · 照护协同' },
+      { username: 'chenming', password: 'ChenMing@CareLoop2026', name: '陈明', desc: '陈桂芳之子，照护协同' },
     ],
     clinician: [
-      { username: 'doctor_wang', password: 'DrWang@CareLoop2026', name: '王心怡', desc: '心外科 · 医护工作台' },
+      { username: 'doctor_wang', password: 'DrWang@CareLoop2026', name: '王心怡', desc: '心外科，医护工作台' },
     ],
   };
 
@@ -122,11 +122,11 @@ export const LoginPage: React.FC = () => {
           </span>
           <span className="font-black text-2xl tracking-wide text-foreground">愈见 CareLoop</span>
         </Link>
-        <p className="text-sm text-muted-foreground">愈见 CareLoop · 出院患者全周期照护助手</p>
+        <p className="text-sm text-muted-foreground">出院患者全周期照护助手</p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <Card className="border-border shadow-lg">
+        <Card className="border-border">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl font-bold">欢迎进入</CardTitle>
             <CardDescription>患者、家属与医护人员登录入口</CardDescription>
@@ -228,7 +228,7 @@ export const LoginPage: React.FC = () => {
                             <User className="h-3.5 w-3.5 shrink-0 text-primary" />
                             <span>
                               <span className="block font-bold text-foreground">
-                                {acc.name} · {acc.username}
+                                {acc.name}（{acc.username}）
                               </span>
                               <span className="block text-[11px] text-muted-foreground mt-0.5">{acc.desc}</span>
                             </span>
@@ -329,7 +329,7 @@ export const LoginPage: React.FC = () => {
         </Card>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          登录即代表同意平台使用协议与隐私政策 · 演示系统数据已脱敏
+          登录即代表同意平台使用协议与隐私政策；演示系统数据已脱敏
         </p>
       </div>
     </div>

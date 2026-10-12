@@ -201,7 +201,7 @@ export function MedicationsPage() {
       <div className="flex items-start justify-between gap-2 pt-2">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold">用药打卡</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{todayLabel} · 按时服药有助于康复</p>
+          <p className="mt-1 text-sm text-muted-foreground">{todayLabel}，按时服药有助于康复</p>
         </div>
         <RefreshButton onClick={() => void initLoad(true)} spinning={refreshing} />
       </div>

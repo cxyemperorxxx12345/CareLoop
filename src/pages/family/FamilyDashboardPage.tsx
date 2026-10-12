@@ -153,7 +153,7 @@ export function FamilyDashboardPage() {
           <p className="text-sm text-muted-foreground">{todayLabel}</p>
           <h1 className="mt-1 text-2xl font-bold">{greeting()}，我正在照护 {patient.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {relation ? `${relation.relation}视角 · ` : ''}以下信息经患者授权可见
+            {relation ? `${relation.relation}视角，` : ''}以下信息经患者授权可见
           </p>
         </div>
         <Button

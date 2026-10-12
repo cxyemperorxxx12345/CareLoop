@@ -209,7 +209,7 @@ export function FamilyMedicationsPage() {
       <div className="pt-2">
         <h1 className="text-2xl font-bold">代为打卡</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {todayLabel} · 正在协助 {patientName}，操作将标注家属来源
+          {todayLabel}，正在协助 {patientName}，操作将标注家属来源
         </p>
       </div>
 
