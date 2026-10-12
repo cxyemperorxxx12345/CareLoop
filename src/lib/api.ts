@@ -63,7 +63,7 @@ export async function getMyPatient() {
 // ===== 家属照护对象（ACTIVE 绑定的患者，家属端数据入口）=====
 
 export interface FamilyPatient {
-  patient: { id: string; name: string; discharge_date: string; risk_level: string | null };
+  patient: { id: string; name: string; gender: string | null; discharge_date: string; risk_level: string | null };
   family_name: string;
   relation: string;
 }
@@ -74,7 +74,7 @@ export async function getFamilyPatient(): Promise<FamilyPatient | null> {
   if (!uid) return null;
   const { data } = await supabase
     .from('care_relations')
-    .select('family_name, relation, patients(id, name, discharge_date, risk_level)')
+    .select('family_name, relation, patients(id, name, gender, discharge_date, risk_level)')
     .eq('family_user_id', uid)
     .eq('status', 'ACTIVE')
     .order('is_primary', { ascending: false })

@@ -7,7 +7,7 @@ const TONE: Record<ReminderAdaptResult['rules'][number]['tone'], { icon: typeof 
   shield: { icon: ShieldCheck, cls: 'text-sky-600 bg-sky-50 border-sky-200' },
 };
 
-export function AdaptiveReminderCard({ result }: { result: ReminderAdaptResult }) {
+export function AdaptiveReminderCard({ result, subject = '你' }: { result: ReminderAdaptResult; subject?: string }) {
   const idx = result.disturbanceIndex;
   const color = idx <= 40 ? '#10b981' : idx >= 75 ? '#ef4444' : '#f59e0b';
   const R = 34;
@@ -18,7 +18,7 @@ export function AdaptiveReminderCard({ result }: { result: ReminderAdaptResult }
     <section className="rounded-2xl border border-border bg-card p-4">
       <div className="mb-3 flex items-center gap-2">
         <BellOff className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold">智能提醒 · 已按你的习惯自适应</h3>
+        <h3 className="font-semibold">智能提醒 · 已按{subject}的习惯自适应</h3>
       </div>
 
       <div className="flex items-center gap-4">
@@ -63,7 +63,7 @@ export function AdaptiveReminderCard({ result }: { result: ReminderAdaptResult }
       )}
 
       {!result.hasData && (
-        <p className="mt-3 text-xs text-muted-foreground">随着你开始打卡，系统会逐步学习你的服药节奏并自动减扰。</p>
+        <p className="mt-3 text-xs text-muted-foreground">随着{subject}开始打卡，系统会逐步学习{subject}的服药节奏并自动减扰。</p>
       )}
     </section>
   );

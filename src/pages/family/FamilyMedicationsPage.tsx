@@ -43,6 +43,7 @@ export function FamilyMedicationsPage() {
   const [pid, setPid] = useState<string | null>(null);
   const [familyName, setFamilyName] = useState('家属');
   const [patientName, setPatientName] = useState('');
+  const [patientGender, setPatientGender] = useState<string | null>(null);
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   // 机制③：照护对象用药响应轨迹推导的自适应提醒
@@ -70,6 +71,7 @@ export function FamilyMedicationsPage() {
         if (fp) {
           setPid(fp.patient.id);
           setPatientName(fp.patient.name);
+          setPatientGender(fp.patient.gender);
           setFamilyName(fp.family_name);
           await refresh(fp.patient.id);
           // 机制③：拉取照护对象近 14 天用药响应，本地推导自适应提醒
@@ -225,8 +227,8 @@ export function FamilyMedicationsPage() {
         </p>
       </div>
 
-      {/* 机制③：智能提醒已按照护对象习惯自适应（最小打扰） */}
-      {adapt && <AdaptiveReminderCard result={adapt} />}
+      {/* 机制③：智能提醒已按照护对象（他/她）习惯自适应（最小打扰） */}
+      {adapt && <AdaptiveReminderCard result={adapt} subject={patientGender === '女' ? '她' : patientGender === '男' ? '他' : '其'} />}
 
       <Card className="rounded-2xl">
         <CardContent className="space-y-2 p-4">

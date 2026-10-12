@@ -218,9 +218,6 @@ export function MedicationsPage() {
         <RefreshButton onClick={() => void initLoad(true)} spinning={refreshing} />
       </div>
 
-      {/* 机制③：智能提醒已按本人习惯自适应（最小打扰） */}
-      {adapt && <AdaptiveReminderCard result={adapt} />}
-
       {/* 今日总进度 */}
       <Card className="rounded-2xl">
         <CardContent className="space-y-2 p-4">
@@ -325,6 +322,9 @@ export function MedicationsPage() {
           );
         })
       )}
+
+      {/* 机制③：智能提醒已按本人习惯自适应（最小打扰，置于用药列表之后、低优先级） */}
+      {adapt && <AdaptiveReminderCard result={adapt} />}
 
       {/* 跳过原因弹窗 */}
       <Dialog
