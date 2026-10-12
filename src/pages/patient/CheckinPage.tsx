@@ -64,6 +64,76 @@ function findVitalRangeIssue(values: Record<VitalRangeKey, number | null>): stri
   return null;
 }
 
+/**
+ * 日粒度幂等写入当日体征：
+ * 1) 优先走后端 RPC `upsert_daily_checkin`（迁移 00014，按 created_at::date 当日唯一快照）；
+ * 2) 若后端尚未部署该函数（PGRST202 / 404），退化为客户端兜底：
+ *    按本机当天 00:00–次日 00:00 查当日记录，有则 UPDATE、无则 INSERT，
+ *    同样保证同一天只有一条快照，绝不裸 insert 造成堆积。
+ * 兜底只在「函数不存在」时触发；RPC 的其他错误照实返回，避免静默双写。
+ */
+async function submitDailyCheckin(args: {
+  patientId: string;
+  systolic: number | null;
+  diastolic: number | null;
+  heart_rate: number | null;
+  temperature: number | null;
+  blood_glucose: number | null;
+  weight: number | null;
+  pain_score: number;
+  note: string | null;
+}): Promise<{ error: { message: string } | null }> {
+  const payload = {
+    patient_id: args.patientId,
+    systolic: args.systolic,
+    diastolic: args.diastolic,
+    heart_rate: args.heart_rate,
+    temperature: args.temperature,
+    blood_glucose: args.blood_glucose,
+    weight: args.weight,
+    pain_score: args.pain_score,
+    note: args.note,
+  };
+
+  // 1) RPC 优先
+  const rpc = await supabase.rpc('upsert_daily_checkin', {
+    p_patient_id: args.patientId,
+    p_systolic: args.systolic,
+    p_diastolic: args.diastolic,
+    p_heart_rate: args.heart_rate,
+    p_temperature: args.temperature,
+    p_blood_glucose: args.blood_glucose,
+    p_weight: args.weight,
+    p_pain_score: args.pain_score,
+    p_note: args.note,
+    p_created_at: new Date().toISOString(),
+  });
+  if (!rpc.error) return { error: null };
+  const code = (rpc.error as { code?: string }).code;
+  if (code !== 'PGRST202' && code !== '404') return { error: rpc.error };
+
+  // 2) 客户端日粒度兜底（后端未部署 upsert_daily_checkin 时）
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  const { data: existing, error: selErr } = await supabase
+    .from('checkins')
+    .select('id')
+    .eq('patient_id', args.patientId)
+    .gte('created_at', dayStart.toISOString())
+    .lt('created_at', dayEnd.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (selErr) return { error: selErr };
+
+  if (existing && existing.length > 0) {
+    const { error: updErr } = await supabase.from('checkins').update(payload).eq('id', existing[0].id);
+    return { error: updErr };
+  }
+  const { error: insErr } = await supabase.from('checkins').insert(payload);
+  return { error: insErr };
+}
+
 export function CheckinPage() {
   const navigate = useNavigate();
   const [patient, setPatient] = useState<{ id: string } | null>(null);
@@ -131,18 +201,17 @@ export function CheckinPage() {
     }
     setSubmitting(true);
     try {
-      // 日粒度幂等写入：同一天重复打卡覆盖当日快照，不再裸 insert 造成堆积
-      const { error } = await supabase.rpc('upsert_daily_checkin', {
-        p_patient_id: patient.id,
-        p_systolic: sysVal,
-        p_diastolic: diaVal,
-        p_heart_rate: num(heartRate),
-        p_temperature: tempVal,
-        p_blood_glucose: num(glucose),
-        p_weight: num(weight),
-        p_pain_score: pain,
-        p_note: note.trim() || null,
-        p_created_at: new Date().toISOString(),
+      // 日粒度幂等写入：同一天重复打卡覆盖当日快照（RPC 优先，未部署时客户端兜底）
+      const { error } = await submitDailyCheckin({
+        patientId: patient.id,
+        systolic: sysVal,
+        diastolic: diaVal,
+        heart_rate: num(heartRate),
+        temperature: tempVal,
+        blood_glucose: num(glucose),
+        weight: num(weight),
+        pain_score: pain,
+        note: note.trim() || null,
       });
       if (error) throw error;
       toast.success('打卡成功');
