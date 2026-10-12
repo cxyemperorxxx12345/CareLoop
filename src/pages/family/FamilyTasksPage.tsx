@@ -24,7 +24,7 @@ interface AlertRow {
 const ACTION_TEXT: Record<string, string> = {
   dosed: '已代为打卡，链路终止',
   contacted: '已联系患者，维持观察',
-  escalate: '已转医护介入',
+  escalate: '已转医护回电',
 };
 
 function waitedLabel(iso: string): string {
@@ -74,7 +74,7 @@ export function FamilyTasksPage() {
     };
   }, [refresh]);
 
-  // 家属响应：contacted 维持观察；escalate 升级红旗交医护
+  // 家属响应：contacted 维持观察；escalate 转医护回电（保持黄色，不升级红色）
   async function respond(taskId: string, action: 'contacted' | 'escalate') {
     if (!pid || busy) return;
     setBusy(true);
@@ -85,7 +85,7 @@ export function FamilyTasksPage() {
         p_family_name: familyName,
       });
       if (error) throw error;
-      toast.success(action === 'contacted' ? '已记录：您已联系患者，医护端同步可见' : '已转医护介入，护士站将尽快联系');
+      toast.success(action === 'contacted' ? '已记录：您已联系患者，医护端同步可见' : '已转医护回电，护士站将尽快联系');
       await refresh(pid);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '操作失败，请重试');

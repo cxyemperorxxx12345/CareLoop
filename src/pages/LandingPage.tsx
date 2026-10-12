@@ -1,6 +1,7 @@
+import { AlertTriangle, Check, ChevronRight, Clock, Users } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, Clock, AlertTriangle, Users, ChevronRight } from 'lucide-react';
+import { BrandMark } from '@/components/common/BrandMark';
 
 export const LandingPage: React.FC = () => {
   // 升级链路：一次渲染一张、滑动/入口切换
@@ -34,9 +35,7 @@ export const LandingPage: React.FC = () => {
       <header className="sticky top-0 z-50 bg-background/85 backdrop-blur border-b border-border">
         <div className="container flex items-center gap-5 py-3.5">
           <a href="#hero" className="flex items-center gap-2.5 shrink-0">
-            <span className="w-9 h-9 rounded-full bg-primary text-primary-foreground font-black grid place-items-center text-lg">
-              愈
-            </span>
+            <BrandMark className="w-9 h-9 text-primary" title="" />
             <span className="font-black text-lg tracking-wide">愈见 CareLoop</span>
           </a>
           <div className="hidden md:flex items-center gap-7 text-sm ml-4 text-muted-foreground font-medium">
@@ -54,12 +53,6 @@ export const LandingPage: React.FC = () => {
             </a>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Link
-              to="/login"
-              className="rounded-full border border-border text-sm font-medium px-4 py-2 hover:border-primary/50 transition-all"
-            >
-              登录
-            </Link>
             <Link
               to="/login"
               className="rounded-full bg-primary text-primary-foreground text-sm font-medium px-5 py-2 hover:brightness-95 transition-all"
@@ -383,9 +376,7 @@ export const LandingPage: React.FC = () => {
                     {/* App 顶栏 */}
                     <div className="flex items-center justify-between bg-primary/10 rounded-xl px-2.5 py-1.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground font-black text-[10px] grid place-items-center">
-                          愈
-                        </span>
+                        <BrandMark className="w-5 h-5 text-primary" title="" />
                         <span className="font-bold text-foreground text-[12px]">愈见 CareLoop</span>
                       </div>
                       <span className="text-[10px] font-medium text-primary bg-primary/15 px-2 py-0.5 rounded-full">
@@ -545,9 +536,7 @@ export const LandingPage: React.FC = () => {
                         {/* 左侧导航栏 */}
                         <div className="w-[7.5rem] shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col">
                           <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-sidebar-border">
-                            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground font-black text-[10px] grid place-items-center shrink-0">
-                              愈
-                            </span>
+                            <BrandMark className="w-5 h-5 text-primary shrink-0" title="" />
                             <span className="font-bold text-foreground text-[11px] truncate">医护工作台</span>
                           </div>
                           <div className="flex-1 py-2 px-2 space-y-1">

@@ -1,17 +1,19 @@
 // 今日概览（患者端首页）：问候 + 今日待办 + 用药进度 + 最近打卡 + 快捷入口
+
+import { BellRing, BookOpen, Bot, CalendarHeart, FileUp, HeartPulse, LogOut, Stethoscope } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BellRing, BookOpen, Bot, CalendarHeart, FileUp, HeartPulse, LogOut, Stethoscope } from 'lucide-react';
 import { toast } from 'sonner';
+import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
+import { FontScaleSwitch } from '@/components/common/FontScaleSwitch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 // 时间槽常量
@@ -215,6 +217,9 @@ export function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* 适老化字号档位：小 / 中 / 大（全局生效，本地记忆） */}
+      <FontScaleSwitch />
 
       {/* 下次用药（P1：最突出卡片） */}
       {nextDose && (

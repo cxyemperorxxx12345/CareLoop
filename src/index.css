@@ -205,3 +205,22 @@ All colors MUST be HSL.
   font-variant-numeric: tabular-nums;
 }
 /* ===== SIGNATURE-CSS:END ===== */
+
+/* ===== 适老化字号档位（小 / 中 / 大）=====
+   用法：<html> 挂 fs-sm / fs-md / fs-lg 类（src/lib/font-scale.ts 统一管理，localStorage 记忆）。
+   原理：Tailwind 的 text-xs/sm/base/lg/xl/2xl 都是 rem 单位，随根字号同比缩放；
+         text-[15px] 等任意 px 字号不随根字号变化，按档位显式覆盖
+         （取患者端/家属端正文与次要文本最常用的几档；本段不写在 @layer 内，
+           层外规则优先于 Tailwind 的 utilities 层，覆盖必然生效）。 */
+html.fs-sm { font-size: 100%; }
+html.fs-md { font-size: 112.5%; } /* 基准 16px → 18px */
+html.fs-lg { font-size: 125%; }   /* 基准 16px → 20px */
+
+html.fs-md .text-\[15px\] { font-size: 17px; }
+html.fs-lg .text-\[15px\] { font-size: 19px; }
+html.fs-md .text-\[13px\] { font-size: 15px; }
+html.fs-lg .text-\[13px\] { font-size: 17px; }
+html.fs-md .text-\[11px\] { font-size: 12.5px; }
+html.fs-lg .text-\[11px\] { font-size: 14px; }
+html.fs-md .text-\[10px\] { font-size: 11.5px; }
+html.fs-lg .text-\[10px\] { font-size: 13px; }

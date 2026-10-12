@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="愈见 CareLoop">
+  <title>愈见 CareLoop</title>
+  <!-- 青绿圆角底：保证在浅色/深色浏览器界面下都立得住 -->
+  <rect width="64" height="64" rx="14" fill="#0E7C86" />
+  <!-- 标记本体与 src/components/common/BrandMark.tsx 保持一致（改一处时记得同步） -->
+  <g transform="translate(32 32) scale(0.84) translate(-32 -32)" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 57.01 27.59 A 25.4 25.4 0 1 0 41.92 55.38" stroke-width="7.2" />
+    <path d="M 35 48 H 43 L 46.5 40.5 L 50.5 56 L 53.5 48 H 61" stroke-width="4.3" />
+    <path
+      d="M 32 41.2 C 32 41.2 22 35.4 22 30.2 C 22 27.2 24.4 25.2 26.8 25.2 C 29 25.2 30.8 26.9 32 29.6 C 33.2 26.9 35 25.2 37.2 25.2 C 39.6 25.2 42 27.2 42 30.2 C 42 35.4 32 41.2 32 41.2 Z"
+      fill="#FFFFFF"
+    />
+  </g>
+</svg>

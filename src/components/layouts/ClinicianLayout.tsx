@@ -4,6 +4,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { BookOpen, FileText, LayoutDashboard, Menu, Users } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
+import { BrandMark } from '@/components/common/BrandMark';
 import { supabase } from '@/db/supabase';
 
 const MENU = [
@@ -70,9 +71,7 @@ export function ClinicianLayout() {
       {/* 桌面侧边栏 */}
       <aside className="hidden md:flex flex-col w-64 shrink-0 border-r border-border bg-sidebar">
         <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border">
-          <span className="w-9 h-9 rounded-full bg-primary text-primary-foreground font-black grid place-items-center">
-            愈
-          </span>
+          <BrandMark className="w-9 h-9 text-primary shrink-0" title="" />
           <div className="min-w-0">
             <p className="font-black text-sm truncate">愈见 CareLoop</p>
             <p className="text-xs text-muted-foreground truncate">医护工作台</p>
@@ -111,9 +110,7 @@ export function ClinicianLayout() {
           <SheetContent side="left" className="w-72 bg-sidebar p-0">
             <SheetTitle className="sr-only">工作台菜单</SheetTitle>
             <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border">
-              <span className="w-9 h-9 rounded-full bg-primary text-primary-foreground font-black grid place-items-center">
-                愈
-              </span>
+              <BrandMark className="w-9 h-9 text-primary shrink-0" title="" />
               <div className="min-w-0">
                 <p className="font-black text-sm truncate">愈见 CareLoop</p>
                 <p className="text-xs text-muted-foreground truncate">{profile?.full_name ?? '医护'}</p>

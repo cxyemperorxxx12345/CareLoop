@@ -1,8 +1,9 @@
 // 预警中心：分级预警列表、处理闭环
-import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { BellOff, CheckCircle2, ChevronDown, ChevronUp, RotateCcw, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { BellOff, CheckCircle2, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,8 +25,9 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { clinicianApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { clinicianApi } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 // ===== 本地类型 =====
 interface AlertPatient {
@@ -54,7 +56,7 @@ interface AlertRow {
 const FAMILY_ACTION_TEXT: Record<string, string> = {
   dosed: '已代为打卡，链路终止',
   contacted: '已联系患者，维持观察',
-  escalate: '反馈无响应，请求医护介入',
+  escalate: '反馈无响应，转医护回电',
 };
 
 // 级别徽章样式（静态映射，禁止动态拼类名）
@@ -91,8 +93,107 @@ function pickPatient(row: AlertRow): AlertPatient | null {
   return row.patients ?? null;
 }
 
-export function AlertsPage() {
+// 按患者聚合的分组（告警疲劳对策：同一患者的多条预警合并展示，不反复刷屏）
+interface AlertGroup {
+  patientId: string;
+  name: string;
+  department?: string;
+  level: 'red' | 'yellow';
+  openCount: number;
+  sources: Array<{ source: AlertRow['source']; count: number }>;
+  alerts: AlertRow[];
+  latestAt: string;
+}
+
+// 单条预警卡片（聚合视图与平铺视图共用）
+function AlertItem({
+  row,
+  expanded,
+  onToggleExpanded,
+  onResolve,
+}: {
+  row: AlertRow;
+  expanded: boolean;
+  onToggleExpanded: (id: string) => void;
+  onResolve: (row: AlertRow) => void;
+}) {
   const navigate = useNavigate();
+  const p = pickPatient(row);
+  const level = LEVEL_BADGE[row.level] ?? LEVEL_BADGE.yellow;
+  return (
+    <Card className="rounded-2xl">
+      <CardContent className="p-4 space-y-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className={level.className}>{level.label}</Badge>
+          <Badge variant="secondary" className="bg-secondary">
+            {SOURCE_LABEL[row.source] ?? row.source}
+          </Badge>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {formatRelativeTime(row.created_at)}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <button
+            type="button"
+            className="font-bold underline-offset-2 hover:underline"
+            onClick={() => navigate(`/clinician/patients/${row.patient_id}`)}
+          >
+            {p?.name ?? '未知患者'}
+          </button>
+          {p?.department ? <span className="text-muted-foreground">{p.department}</span> : null}
+          {row.status === 'resolved' ? (
+            <Badge variant="secondary" className="bg-secondary ml-auto">已处理</Badge>
+          ) : null}
+        </div>
+        <p className="text-sm text-muted-foreground leading-relaxed">{row.detail}</p>
+        {row.family_responded_at ? (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-triage-green">
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            家属已响应：{FAMILY_ACTION_TEXT[row.family_action ?? ''] ?? '已处理'}（
+            {new Date(row.family_responded_at).toLocaleString('zh-CN')}）
+          </p>
+        ) : null}
+        <div className="flex items-center gap-2 pt-1">
+          {row.status === 'open' ? (
+            <Button type="button" size="sm" onClick={() => onResolve(row)}>
+              处理
+            </Button>
+          ) : (
+            <Button type="button" variant="ghost" size="sm" onClick={() => onToggleExpanded(row.id)}>
+              {expanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4 mr-1" /> 收起处理详情
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4 mr-1" /> 展开处理详情
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+        {row.status === 'resolved' && expanded ? (
+          <div className="rounded-xl bg-muted p-3 space-y-1.5 text-sm">
+            <p>
+              <span className="text-muted-foreground">处置措施：</span>
+              {row.action ?? '—'}
+            </p>
+            <p>
+              <span className="text-muted-foreground">处置结论：</span>
+              {row.resolution_note ?? '—'}
+            </p>
+            <p>
+              <span className="text-muted-foreground">处理时间：</span>
+              {row.handled_at ? formatRelativeTime(row.handled_at) : '—'}
+            </p>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AlertsPage() {
   const { profile } = useAuth();
 
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
@@ -107,6 +208,12 @@ export function AlertsPage() {
   const [submitting, setSubmitting] = useState(false);
   // 已处理条目展开详情
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // 视图模式：按患者聚合（默认，告警疲劳对策）/ 按时间平铺
+  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
+  // 聚合分组展开状态（patient_id 集合）
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  // 首次加载自动展开最紧急分组，让「聚合 → 明细」层级一眼可见
+  const autoExpandedRef = useRef(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -150,6 +257,67 @@ export function AlertsPage() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [alerts, tab]);
+
+  // 未处理 / 已处理拆分（聚合视图只对未处理预警分组）
+  const openVisible = useMemo(() => visibleAlerts.filter(a => a.status === 'open'), [visibleAlerts]);
+  const resolvedVisible = useMemo(() => visibleAlerts.filter(a => a.status === 'resolved'), [visibleAlerts]);
+
+  // 按患者聚合：同一患者的多条未处理预警合并为一组，组内红在前、时间新的在前
+  const groups = useMemo<AlertGroup[]>(() => {
+    const byPatient = new Map<string, AlertRow[]>();
+    for (const a of openVisible) {
+      const arr = byPatient.get(a.patient_id) ?? [];
+      arr.push(a);
+      byPatient.set(a.patient_id, arr);
+    }
+    const result: AlertGroup[] = [];
+    for (const [patientId, rows] of byPatient) {
+      const sorted = [...rows].sort((a, b) => {
+        const levelRank = (l: AlertRow['level']) => (l === 'red' ? 0 : 1);
+        const lr = levelRank(a.level) - levelRank(b.level);
+        if (lr !== 0) return lr;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      const p = pickPatient(sorted[0]);
+      const srcCount = new Map<AlertRow['source'], number>();
+      for (const r of sorted) srcCount.set(r.source, (srcCount.get(r.source) ?? 0) + 1);
+      result.push({
+        patientId,
+        name: p?.name ?? '未知患者',
+        department: p?.department,
+        level: sorted.some(r => r.level === 'red') ? 'red' : 'yellow',
+        openCount: sorted.length,
+        sources: [...srcCount.entries()].map(([source, count]) => ({ source, count })),
+        alerts: sorted,
+        latestAt: sorted[0]?.created_at ?? '',
+      });
+    }
+    // 组间：红在前，同级最新动态在前
+    return result.sort((a, b) => {
+      const lr = (a.level === 'red' ? 0 : 1) - (b.level === 'red' ? 0 : 1);
+      if (lr !== 0) return lr;
+      return new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime();
+    });
+  }, [openVisible]);
+
+  // 首次加载自动展开最紧急分组（只做一次，用户手动收起后不强行展开）
+  useEffect(() => {
+    if (!autoExpandedRef.current && groups.length > 0) {
+      autoExpandedRef.current = true;
+      setExpandedGroups(new Set([groups[0].patientId]));
+    }
+  }, [groups]);
+
+  const toggleGroup = (patientId: string) =>
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(patientId)) next.delete(patientId);
+      else next.add(patientId);
+      return next;
+    });
+
+  // 是否走聚合视图：非「已处理」Tab 且有未处理预警
+  const showGrouped = viewMode === 'grouped' && tab !== 'resolved' && openVisible.length > 0;
 
   const openResolveDialog = (row: AlertRow) => {
     setResolveTarget(row);
@@ -253,90 +421,103 @@ export function AlertsPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {visibleAlerts.map(row => {
-            const p = pickPatient(row);
-            const level = LEVEL_BADGE[row.level] ?? LEVEL_BADGE.yellow;
-            const expanded = expandedIds.has(row.id);
-            return (
-              <Card key={row.id}>
-                <CardContent className="p-4 space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge className={level.className}>{level.label}</Badge>
-                    <Badge variant="secondary" className="bg-secondary">
-                      {SOURCE_LABEL[row.source] ?? row.source}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {formatRelativeTime(row.created_at)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          {/* 视图切换：按患者聚合（默认）/ 按时间平铺 */}
+          {openVisible.length > 0 && tab !== 'resolved' ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="text-xs text-muted-foreground">同一患者的多条预警可合并展示，避免告警疲劳</span>
+              <div className="flex items-center gap-1 rounded-full bg-muted p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grouped')}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                    viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Users className="mr-1 inline h-3.5 w-3.5" />
+                  按患者聚合
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('flat')}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                    viewMode === 'flat' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  按时间
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {showGrouped ? (
+            groups.map(g => {
+              const open = expandedGroups.has(g.patientId);
+              const sourceText = g.sources.map(s => `${SOURCE_LABEL[s.source] ?? s.source} ×${s.count}`).join(' · ');
+              return (
+                <Card key={g.patientId} className="rounded-2xl">
+                  <CardContent className="p-4 space-y-2.5">
                     <button
                       type="button"
-                      className="font-bold underline-offset-2 hover:underline"
-                      onClick={() => navigate(`/clinician/patients/${row.patient_id}`)}
+                      onClick={() => toggleGroup(g.patientId)}
+                      className="flex w-full flex-wrap items-center gap-2 text-left"
                     >
-                      {p?.name ?? '未知患者'}
+                      <Badge className={g.level === 'red' ? LEVEL_BADGE.red.className : LEVEL_BADGE.yellow.className}>
+                        {g.level === 'red' ? '红色' : '黄色'} · {g.openCount} 条未处理
+                      </Badge>
+                      <span className="text-sm font-bold">{g.name}</span>
+                      {g.department ? <span className="text-xs text-muted-foreground">{g.department}</span> : null}
+                      <span className="text-xs text-muted-foreground">{sourceText}</span>
+                      <ChevronDown className={cn('ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
                     </button>
-                    {p?.department ? (
-                      <span className="text-muted-foreground">{p.department}</span>
-                    ) : null}
-                    {row.status === 'resolved' ? (
-                      <Badge variant="secondary" className="bg-secondary ml-auto">已处理</Badge>
-                    ) : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{row.detail}</p>
-                  {row.family_responded_at ? (
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-triage-green">
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                      家属已响应：{FAMILY_ACTION_TEXT[row.family_action ?? ''] ?? '已处理'}（
-                      {new Date(row.family_responded_at).toLocaleString('zh-CN')}）
+                    <p className="text-xs text-muted-foreground">
+                      该患者 {g.openCount} 条未处理预警已合并展示{open ? '，点击标题收起明细' : '，点击标题展开明细'}
                     </p>
-                  ) : null}
-                  <div className="flex items-center gap-2 pt-1">
-                    {row.status === 'open' ? (
-                      <Button type="button" size="sm" onClick={() => openResolveDialog(row)}>
-                        处理
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleExpanded(row.id)}
-                      >
-                        {expanded ? (
-                          <>
-                            <ChevronUp className="h-4 w-4 mr-1" /> 收起处理详情
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="h-4 w-4 mr-1" /> 展开处理详情
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                  {/* 已处理条目：展开显示处置措施/结论/时间 */}
-                  {row.status === 'resolved' && expanded ? (
-                    <div className="rounded-xl bg-muted p-3 space-y-1.5 text-sm">
-                      <p>
-                        <span className="text-muted-foreground">处置措施：</span>
-                        {row.action ?? '—'}
-                      </p>
-                      <p>
-                        <span className="text-muted-foreground">处置结论：</span>
-                        {row.resolution_note ?? '—'}
-                      </p>
-                      <p>
-                        <span className="text-muted-foreground">处理时间：</span>
-                        {row.handled_at ? formatRelativeTime(row.handled_at) : '—'}
-                      </p>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-            );
-          })}
+                    {open ? (
+                      <div className="space-y-2.5 border-t border-border pt-2.5">
+                        {g.alerts.map(row => (
+                          <AlertItem
+                            key={row.id}
+                            row={row}
+                            expanded={expandedIds.has(row.id)}
+                            onToggleExpanded={toggleExpanded}
+                            onResolve={openResolveDialog}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            visibleAlerts.map(row => (
+              <AlertItem
+                key={row.id}
+                row={row}
+                expanded={expandedIds.has(row.id)}
+                onToggleExpanded={toggleExpanded}
+                onResolve={openResolveDialog}
+              />
+            ))
+          )}
+
+          {/* 「全部」Tab 的聚合视图下，已处理预警以平铺方式展示在分组下方 */}
+          {showGrouped && tab === 'all' && resolvedVisible.length > 0 ? (
+            <div className="space-y-3 pt-2">
+              <p className="text-xs font-medium text-muted-foreground">已处理 · {resolvedVisible.length} 条</p>
+              {resolvedVisible.map(row => (
+                <AlertItem
+                  key={row.id}
+                  row={row}
+                  expanded={expandedIds.has(row.id)}
+                  onToggleExpanded={toggleExpanded}
+                  onResolve={openResolveDialog}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
 

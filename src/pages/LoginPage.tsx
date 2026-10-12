@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { HeartPulse, Monitor, ShieldAlert, Smartphone, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { BrandMark } from '@/components/common/BrandMark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -117,9 +118,7 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-background flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/" className="inline-flex items-center gap-2 mb-4">
-          <span className="w-10 h-10 rounded-full bg-primary text-primary-foreground font-black grid place-items-center text-xl">
-            愈
-          </span>
+          <BrandMark className="w-10 h-10 text-primary" title="" />
           <span className="font-black text-2xl tracking-wide text-foreground">愈见 CareLoop</span>
         </Link>
         <p className="text-sm text-muted-foreground">出院患者全周期照护助手</p>
