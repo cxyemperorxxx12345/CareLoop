@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>愈见 CareLoop · 答辩防御一页纸</title>
+<style>
+:root{--primary:#0E7C86;--primary-dark:#0A5E66;--primary-soft:#E6F4F5;--ink:#0F172A;--muted:#475569;--faint:#94A3B8;--bg:#F6F8FA;--card:#FFFFFF;--border:#E2E8F0;--red:#DC2626;--red-bg:#FEE2E2;--amber:#B45309;--amber-bg:#FEF3C7;--green:#15803D;--green-bg:#DCFCE7;--blue:#0369A1;--blue-bg:#E0F2FE;--code-bg:#0F172A}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;font-size:15.5px}
+.page{max-width:880px;margin:0 auto;padding:28px 20px 56px}
+.hero{background:linear-gradient(135deg,#0E7C86 0%,#0A5E66 100%);color:#fff;border-radius:18px;padding:32px 36px 28px;box-shadow:0 8px 24px rgba(14,124,134,.18)}
+.hero .kicker{font-size:12.5px;letter-spacing:.14em;opacity:.85;font-weight:600}
+.hero h1{font-size:27px;font-weight:900;margin:6px 0 8px}
+.hero p{font-size:14px;opacity:.92;max-width:640px}
+.hero .meta{margin-top:14px;font-size:12.5px;opacity:.82;display:flex;gap:18px;flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px 30px;margin-top:18px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+h2{font-size:19px;font-weight:800;margin:30px 0 12px;padding-left:12px;border-left:4px solid var(--primary);line-height:1.4}
+h2:first-child{margin-top:4px}
+p{margin:8px 0}
+ul,ol{margin:8px 0 8px 1.4em}
+li{margin:4px 0}
+strong{font-weight:700}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace;font-size:.86em;background:var(--primary-soft);color:var(--primary-dark);padding:2px 6px;border-radius:6px}
+.flow{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
+.flow .fstep{flex:1 1 160px;background:var(--primary-soft);border:1px solid #CDE9EC;border-radius:14px;padding:14px 14px 12px;position:relative}
+.flow .fstep .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:12.5px;font-weight:800;margin-bottom:6px}
+.flow .fstep b{display:block;font-size:14px;margin-bottom:3px;color:var(--primary-dark)}
+.flow .fstep span{font-size:12.8px;color:var(--muted);line-height:1.6}
+.qa{border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:12px 0;background:#FCFEFE}
+.qa .q{font-weight:800;font-size:15px;margin-bottom:6px}
+.qa .q::before{content:"Q";display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--primary);color:#fff;font-size:12.5px;font-weight:900;margin-right:8px;vertical-align:1px}
+.qa .a{font-size:14.2px;color:#334155}
+.qa .a::before{content:"A";display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--green-bg);color:var(--green);font-size:12.5px;font-weight:900;margin-right:8px;vertical-align:1px}
+.pitch{background:linear-gradient(135deg,#0E7C86,#0A5E66);color:#fff;border-radius:16px;padding:22px 26px;margin-top:18px;font-size:15px}
+.pitch b{display:block;font-size:13px;letter-spacing:.1em;opacity:.8;margin-bottom:8px}
+.callout{border-radius:12px;padding:13px 16px;margin:12px 0;font-size:14px;border:1px solid;display:flex;gap:10px}
+.callout.info{background:var(--blue-bg);border-color:#BAE6FD;color:#075985}
+.pill{display:inline-block;padding:1px 10px;border-radius:999px;font-size:12.5px;font-weight:700}
+.pill.ok{background:var(--green-bg);color:var(--green)}
+.footer{margin-top:26px;text-align:center;font-size:12.5px;color:var(--faint)}
+@media (max-width:640px){.page{padding:16px 12px 40px}.hero{padding:24px 22px;border-radius:14px}.card{padding:18px 16px;border-radius:14px}}
+@media print{body{background:#fff}.page{max-width:none;padding:0}.hero{box-shadow:none}.card,.qa{box-shadow:none;break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <div class="kicker">CARELOOP · DEFENSE SHEET</div>
+  <h1>答辩防御一页纸</h1>
+  <p>评委质疑 → 标准答案 → 演示时指哪儿。按评审报告建议，80% 的答辩时间押在「升级链 + 协同 + 处置闭环」这个机制叙事上。</p>
+  <div class="meta"><span>用途：赛前答辩准备</span><span>更新：2026-10-12</span></div>
+</header>
+
+<main class="card">
+
+<h2>60 秒演示动线（五步，每步都踩在闭环上）</h2>
+<div class="flow">
+  <div class="fstep"><span class="n">1</span><b>患者端 · 症状自查</b><span>输入「晨起胸闷」，严重度 2/10 → 判<b>黄</b>；拖到 7/10 → 判<b>红</b>，医护端预警中心同步出现（时间戳「1 分钟前」）</span></div>
+  <div class="fstep"><span class="n">2</span><b>医护端 · 预警中心</b><span>该患者多条预警默认<b>按患者聚合</b>——组卡显示「红色 · 3 条未处理｜用药 ×2 · 分诊 ×1」</span></div>
+  <div class="fstep"><span class="n">3</span><b>家属端 · 待协助任务</b><span>点「仍无响应」→ 医护端该条变为<b>黄色「需医护回电」</b>——红色只留给真正的红旗</span></div>
+  <div class="fstep"><span class="n">4</span><b>患者端 · 智能问答</b><span>问「服药后恶心」→ <b>流式作答</b>，末尾带 <code>[依据: 个人医嘱]</code> 引用标注</span></div>
+  <div class="fstep"><span class="n">5</span><b>患者端 · 今日页</b><span>字号一键切「大」——核心用户 68 岁，适老化不是口号是开关</span></div>
+</div>
+
+<h2>六问六答</h2>
+
+<div class="qa"><div class="q">这些功能互联网医院都有，你们的新东西在哪？</div>
+<div class="a">不在功能清单，在<strong>机制</strong>。拍照识别、AI 用药计划、到点提醒确实都是标配——但「漏服升级链 L0→L3（本人→短信→家属→护士站）+ 症状三级分诊直通医护预警 + 家属代打卡带来源标注」三个机制串成的，是<strong>出院过渡期（术后 2-8 周）的处置闭环</strong>：院内有护士、长期慢病有习惯，这段窗口期恰恰没人管。和医院现有随访系统的本质区别：那些系统是「护士打电话+手工记录」，我们把协同动作变成了患者、家属、护士三方共享的<strong>状态机</strong>，每一步留痕、跨端实时可见——演示第 1-3 步就是完整闭环，数据流真实可验。</div></div>
+
+<div class="qa"><div class="q">分诊是不是关键词一言堂？误报率多少？</div>
+<div class="a">红旗规则<strong>只兜底、不包办</strong>：命中胸痛/呼吸困难等紧急症状<strong>且</strong>严重度 ≥5（或多个危险症状叠加），或体温 ≥39℃ / 收缩压 ≥180℃ 才判红；<strong>低严重度命中判黄</strong>（24h 联系随访），不直接放行、也不滥用红色。未命中则交给 AI 结合出院诊断、既往史、当前体征综合分级；AI 不可用按严重度兜底。规则全文公开写在患者端「分级规则说明」面板里，评委可当场点开。我们只做分级建议、不做确诊承诺——拿不准时从严。</div></div>
+
+<div class="qa"><div class="q">一个护士管 100 个出院患者，每天几百条预警谁看？</div>
+<div class="a">两层降噪。<strong>展示层</strong>：预警中心默认按患者聚合——同一患者的多条预警合并为一张组卡（级别 + 条数 + 来源构成一目了然），先处理人再处理事，随时可切回平铺；<strong>产生层</strong>：同时段多种药漏服只产出一条提醒（列出全部药名），升级链 30 分钟一步、消息写入带 <code>dedup_key</code> 唯一索引，同一事件不重复触发。演示第 2 步直接可见。</div></div>
+
+<div class="qa"><div class="q">漏服一次他汀也配叫红色预警？</div>
+<div class="a">不配——这正是我们专门修过的点。红色现在<strong>只保留给分诊红旗与危险体征</strong>；漏服升级链最高到黄色「需医护回电」，家属选「仍无响应」也是转黄交还医护。徽章语义因此回归临床：红 = 立即就医，黄 = 电话随访/回电。</div></div>
+
+<div class="qa"><div class="q">第 3 周还有多少患者在用？</div>
+<div class="a">不编数字——留存必须上线后验证，这是诚实。但机制上做了三件事对冲「患者自己不打卡」这个最大死因：① <strong>降低门槛</strong>：家属代打卡（记录带来源标注）、稍后提醒（snooze）；② <strong>不制造负罪感</strong>：完成全部用药时的空状态文案是「好好休息」而不是催缴；③ <strong>兜底触达</strong>：患者不打卡，升级链会主动找到家属和护士，数据不会断。依从率趋势在医护端周报可见，低依从患者进入主动随访队列。</div></div>
+
+<div class="qa"><div class="q">谁付费？进哪个科室？怎么和医院现有系统对接？</div>
+<div class="a">目标客户：二甲以上医院<strong>心外科 / 骨科等术后科室的随访护士</strong>。付费方：医院随访外包服务或科室运营预算，按在管患者数订阅。对接路径：后端是标准 Postgres（托管 Supabase），HIS 侧只需在出院事件发生时 webhook 推送患者基本信息与医嘱，随访结论回写即可，支持私有化部署。演示环境用托管 Supabase + 演示短信通道（产品内已诚实标注「演示通道」），生产替换真实短信/推送网关。</div></div>
+
+<div class="pitch"><b>一句话总叙事（收尾用）</b>出院 ≠ 痊愈。愈见 CareLoop 把出院后最危险的 2-8 周，从「患者自己扛」变成「患者—家属—护士」三级协同的闭环：升级链真实可追、分诊规则公开可查、预警按患者合并、红色只留给真正的红旗。</div>
+
+<div class="callout info"><span class="ic">ℹ️</span><div><strong>修复对照：</strong>本轮已按评审报告完成 P0×3、P1×4、P2×4 及附加项共 13+2 项修复，完整台账见 <code>docs/交接手册.md</code> 第 5 节。</div></div>
+
+</main>
+
+<div class="footer">愈见 CareLoop · 答辩防御一页纸 — 内容以 docs/答辩防御一页纸.md 源文件为准 · 演示数据均为虚构脱敏</div>
+</div>
+</body>
+</html>
