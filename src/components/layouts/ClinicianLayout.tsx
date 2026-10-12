@@ -5,6 +5,7 @@ import { BookOpen, FileText, LayoutDashboard, Menu, Users } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandMark } from '@/components/common/BrandMark';
+import { SignOutButton } from '@/components/common/SignOutButton';
 import { supabase } from '@/db/supabase';
 
 const MENU = [
@@ -82,13 +83,7 @@ export function ClinicianLayout() {
         </div>
         <div className="p-4 border-t border-sidebar-border">
           <p className="text-xs text-muted-foreground truncate mb-2">{profile?.full_name ?? '医护'}</p>
-          <button
-            type="button"
-            onClick={signOut}
-            className="w-full text-left text-xs font-medium text-muted-foreground hover:text-foreground rounded-lg border border-border px-3 py-2 transition-colors"
-          >
-            退出登录
-          </button>
+          <SignOutButton onClick={signOut} className="w-full justify-start" />
         </div>
       </aside>
 
@@ -120,16 +115,13 @@ export function ClinicianLayout() {
               <MenuItems alertCount={alertCount} onNavigate={() => setOpen(false)} />
             </div>
             <div className="p-4 border-t border-sidebar-border">
-              <button
-                type="button"
+              <SignOutButton
                 onClick={() => {
                   setOpen(false);
                   signOut();
                 }}
-                className="w-full text-left text-xs font-medium text-muted-foreground rounded-lg border border-border px-3 py-2"
-              >
-                退出登录
-              </button>
+                className="w-full justify-start"
+              />
             </div>
           </SheetContent>
         </Sheet>

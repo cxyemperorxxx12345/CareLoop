@@ -59,6 +59,8 @@ export function AssistantPage() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [syncedAlertIds, setSyncedAlertIds] = useState<Record<number, boolean>>({});
+  // 经降级通道写入症状档案的消息（区别于真正落到医护端预警中心的 RPC 路径）
+  const [syncedFallbackIds, setSyncedFallbackIds] = useState<Record<number, boolean>>({});
   const [patientInfo, setPatientInfo] = useState<{ id: string; name: string; department?: string; followup_phone?: string | null } | null>(null);
   const [contactOpen, setContactOpen] = useState(false);
   const idRef = useRef(1);
@@ -73,24 +75,60 @@ export function AssistantPage() {
 
   // 一键同步到医护端：alerts 的 INSERT 策略仅限医护（RLS），患者端经 SECURITY DEFINER
   // RPC 代为写入（内部校验调用者即本人，防越权上报，见迁移 00020）
+  //
+  // 降级通道：RPC 未部署时，改为写入 symptom_checks（患者本人对该表有 INSERT 权限，
+  // 见策略 symptoms_insert），医护端患者 360「症状史」可见。注意这不是预警，
+  // 提示文案与按钮状态都必须如实说明去向，不得伪造成「已同步到医护端预警中心」。
+  const reportViaSymptomCheck = async (msgId: number, summary: string) => {
+    if (!patientInfo) throw new Error('未找到患者信息');
+    const { error } = await supabase.from('symptom_checks').insert({
+      patient_id: patientInfo.id,
+      chief_complaint: summary,
+      duration: '刚刚',
+      severity: null,
+      // triage_level 枚举值见迁移 00001：green / yellow / red。
+      // yellow = 需关注但非危急，符合「助手建议与医护确认」的场景语义
+      level: 'yellow',
+      advice: '患者端助手一键同步生成：医护端预警通道待开通，已转入症状档案，请医护在患者症状史中查看。',
+      evidence: '助手同步降级通道（patient_escalate_alert 未部署）',
+    });
+    if (error) throw new Error(error.message);
+    setSyncedFallbackIds((prev) => ({ ...prev, [msgId]: true }));
+    toast.info('医护端预警中心尚未开通，已转为症状自查记录上报，医护在患者档案的症状史中可见');
+  };
+
+  // 同步卡片挂在助手消息上，但医护要看的是患者本人的诉求，而不是助手的追问。
+  // 向前回溯最近一条患者消息作为主诉；首条就是助手消息时才回退用助手正文。
+  const buildSummary = (msgId: number, fallback: string): string => {
+    const idx = messages.findIndex((m) => m.id === msgId);
+    let raw = fallback;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        raw = messages[i].content;
+        break;
+      }
+    }
+    return raw.replace(/\s+/g, ' ').trim().slice(0, 120);
+  };
+
   const syncToClinician = async (msgId: number, content: string) => {
     if (!patientInfo) {
       toast.error('未找到患者信息');
       return;
     }
-    if (syncedAlertIds[msgId]) {
+    if (syncedAlertIds[msgId] || syncedFallbackIds[msgId]) {
       toast.info('已同步过，请勿重复操作');
       return;
     }
     try {
-      const summary = content.slice(0, 120);
+      const summary = buildSummary(msgId, content);
       const { error } = await supabase.rpc('patient_escalate_alert', { p_summary: summary });
       if (error) {
-        // 迁移 00020 未应用时函数不存在（PGRST202 / 404）：按错误码识别，
-        // 给患者能听懂的话术 + 可立即替代的通道，而非裸错误码
+        // 迁移 00020 未应用时函数不存在（PGRST202 / 404）：按错误码识别，走症状档案降级通道
         const rpcMissing = error.code === 'PGRST202' || /patient_escalate_alert|Could not find the function/i.test(error.message);
         if (rpcMissing) {
-          throw new Error('同步通道暂未开通。您可以现在用「随访」页的症状自查上报不适，医护端同样能看到；系统管理员在后台启用同步功能后此按钮即可使用');
+          await reportViaSymptomCheck(msgId, summary);
+          return;
         }
         throw new Error(error.message);
       }
@@ -273,12 +311,16 @@ export function AssistantPage() {
                               type="button"
                               size="sm"
                               variant="default"
-                              disabled={syncedAlertIds[m.id]}
+                              disabled={!!syncedAlertIds[m.id] || !!syncedFallbackIds[m.id]}
                               onClick={() => syncToClinician(m.id, m.content)}
                               className="h-8 rounded-lg text-xs gap-1 shadow-sm"
                             >
                               <ShieldAlert className="h-3.5 w-3.5" />
-                              {syncedAlertIds[m.id] ? '已同步医护端' : '一键同步到医护端'}
+                              {syncedAlertIds[m.id]
+                                ? '已同步医护端'
+                                : syncedFallbackIds[m.id]
+                                  ? '已上报症状档案'
+                                  : '一键同步到医护端'}
                             </Button>
                             <Button
                               type="button"

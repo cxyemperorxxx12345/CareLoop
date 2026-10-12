@@ -38,5 +38,7 @@ history/*.json
 .vite_cache
 /.skills
 /tasks
+# 品牌字体原始 ttf（约 14MB/字重，仅用于生成子集，不入库；子集产物在 public/fonts/ 需提交）
+tasks/fonts/raw/
 .native-wind-cache
 .vite

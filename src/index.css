@@ -3,22 +3,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 品牌字体：资源圆体三字重（与设计稿 home-3 一致，BOS CDN） */
+/* 品牌字体：资源圆体三字重（与设计稿 home-3 一致）
+ * 本地子集优先：public/fonts/*.subset.woff2（GB2312 全汉字 + ASCII + 中英标点，约 1MB/字重），
+ * 由 scripts/build-fonts.py 生成并随仓库部署，断网/弱网演示时排版不再塌成系统字体。
+ * CDN 全量 ttf 仅作兜底：子集未覆盖的生僻字才回源（约 14MB/字重）。
+ */
 @font-face {
   font-family: "ResourceHanRoundedCN";
-  src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Regular.ttf") format("truetype");
+  src:
+    url("/fonts/ResourceHanRoundedCN-Regular.subset.woff2") format("woff2"),
+    url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Regular.ttf") format("truetype");
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: "ResourceHanRoundedCN";
-  src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Medium.ttf") format("truetype");
+  src:
+    url("/fonts/ResourceHanRoundedCN-Medium.subset.woff2") format("woff2"),
+    url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Medium.ttf") format("truetype");
   font-weight: 500;
   font-display: swap;
 }
 @font-face {
   font-family: "ResourceHanRoundedCN";
-  src: url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Heavy.ttf") format("truetype");
+  src:
+    url("/fonts/ResourceHanRoundedCN-Heavy.subset.woff2") format("woff2"),
+    url("https://resource-static.bj.bcebos.com/fonts-skill/ResourceHanRoundedCN-Heavy.ttf") format("truetype");
   font-weight: 900;
   font-display: swap;
 }
