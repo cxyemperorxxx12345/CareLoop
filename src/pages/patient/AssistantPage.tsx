@@ -1,3 +1,4 @@
+import { needsSafetyResponse, SAFETY_RESPONSE } from '../../../supabase/functions/_shared/assistant-safety';
 // 智能问答：对话式 UI + assistant-chat Edge Function SSE 流式输出
 
 import { AlertTriangle, Bot, Copy, PhoneCall, SendHorizonal, ShieldAlert } from 'lucide-react';
@@ -30,6 +31,7 @@ interface ChatMsg {
   content: string;
   // 助手失败时降级为本地知识库检索结果（明确非 AI 回答）；有正常回答 / 思考中时为 undefined
   fallback?: LocalKbHit[];
+  safety?: boolean;
 }
 
 const EXAMPLE_QUESTIONS = ['我现在的药需要空腹吃吗？', '术后伤口有点发红，要紧吗？', '出院后血压控制在多少合适？'];
@@ -171,8 +173,9 @@ export function AssistantPage() {
   };
 
   // 直拨随访科室：桌面端 tel: 无响应，阻止默认跳转并复制号码，保证"按了有反馈"
-  const followupPhone = patientInfo?.followup_phone || '010-88886666';
+  const followupPhone = patientInfo?.followup_phone?.trim() || '';
   const copyPhone = async () => {
+    if (!followupPhone) { toast.info('暂无随访电话，请查看出院资料中的联系方式'); return; }
     try {
       await navigator.clipboard.writeText(followupPhone);
       toast.success(`号码已复制：${followupPhone}`);
@@ -218,8 +221,13 @@ export function AssistantPage() {
   const ask = async (question: string) => {
     const q = question.trim();
     if (!q || sending) return;
+    if (q.length > 2000) { toast.error('问题过长，请控制在 2000 字以内'); return; }
     appendMsg({ role: 'user', content: q });
     setInput('');
+    if (needsSafetyResponse(q)) {
+      appendMsg({ role: 'assistant', content: SAFETY_RESPONSE, safety: true });
+      return;
+    }
     setSending(true);
     const assistantId = appendMsg({ role: 'assistant', content: '' });
     let acc = '';
@@ -237,6 +245,12 @@ export function AssistantPage() {
         body: JSON.stringify({ question: q }),
       });
       if (!res.ok || !res.body) throw new Error(`请求失败（${res.status}），请稍后重试`);
+      if (res.headers.get('Content-Type')?.includes('application/json')) {
+        const body = await res.json();
+        if (body.mode !== 'safety' || typeof body.message !== 'string') throw new Error('回复格式异常，请重试');
+        setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: body.message, safety: true } : m));
+        return;
+      }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -366,8 +380,15 @@ export function AssistantPage() {
                       <Streamdown className="text-sm [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-4 [&_ul]:list-disc [&_ul]:pl-4 [&_p]:leading-relaxed">
                         {m.content}
                       </Streamdown>
+                      {m.safety ? (
+                        <div className="mt-3 space-y-2 rounded-xl border border-triage-amber/40 p-3 text-sm" role="status">
+                          <p className="font-medium">先联系能陪在你身边的人；有立即危险时不要等待线上回复。</p>
+                          <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => setContactOpen(true)}>查看随访联系方式</Button>
+                          <p className="text-xs text-muted-foreground">这是即时安全回应，不会自动通知家属或医护。</p>
+                        </div>
+                      ) : null}
                       {/* 若助手建议就诊/联系医护，跳出一键动作卡片 */}
-                      {ESCALATION_PATTERN.test(m.content) && (
+                      {!m.safety && ESCALATION_PATTERN.test(m.content) && (
                         <div className="mt-3 rounded-xl border border-triage-amber/30 bg-triage-amber-bg/50 p-2.5 text-xs space-y-2">
                           <div className="flex items-center gap-1.5 font-bold text-triage-amber">
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -450,15 +471,15 @@ export function AssistantPage() {
           <DialogHeader>
             <DialogTitle>联系随访科室</DialogTitle>
             <DialogDescription>
-              {patientInfo?.department ?? '本院'} · 工作日 8:00–17:00
+              {patientInfo?.department ?? '随访科室'} · 接听时间以出院资料为准
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-1">
             <div className="rounded-xl border border-border bg-muted/50 px-4 py-3 text-center">
-              <p className="sig-num text-xl font-bold tracking-wider text-foreground">{followupPhone}</p>
+              <p className="sig-num text-xl font-bold tracking-wider text-foreground">{followupPhone || '暂无已登记的随访电话'}</p>
               <p className="mt-1 text-xs text-muted-foreground">接通后请说明「愈见 CareLoop 出院随访」</p>
             </div>
-            <div className="flex gap-2">
+            {followupPhone ? <div className="flex gap-2">
               <Button type="button" className="flex-1 rounded-xl" asChild>
                 <a href={`tel:${followupPhone}`} onClick={handleDial}>
                   <PhoneCall className="h-4 w-4" />
@@ -469,7 +490,7 @@ export function AssistantPage() {
                 <Copy className="h-4 w-4" />
                 复制号码
               </Button>
-            </div>
+            </div> : <p className="text-sm text-muted-foreground">请联系出院资料中留存的科室电话，或请可信的人陪同就医。</p>}
             <p className="text-center text-xs text-muted-foreground">手机端点按「立即呼叫」可直接拨出；电脑端点击将自动复制号码</p>
           </div>
         </DialogContent>
