@@ -1,6 +1,6 @@
 // CareLoop 跨端同步总线：基于 Supabase realtime broadcast 的轻量失效通知。
 // 设计动机：postgres_changes 需要把表加入 supabase_realtime 发布（要改库），
-// 而 broadcast 通道零后端配置、实测可用（tasks/test-realtime.mjs 冒烟通过）。
+// 而 broadcast 通道零后端配置，实时功能不可用时静默降级。
 // 所有"用户动作"（打卡/服药/预警处理/发消息…）由动作发起端广播，
 // 其他端的页面收到后自动 refetch；realtime 不可用时静默降级为既有的聚焦刷新。
 

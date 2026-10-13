@@ -11,16 +11,12 @@ node_modules
 dist
 .toolchain/
 .workbuddy/
-# Windows 保留名垃圾文件：Git Bash 把 /dev/null 传给原生程序（node）后会生成名为 nul 的文件，
-# 该文件在 Windows 下无法用常规命令删除，且已修复 .rules/lint.sh 不再产生新的。
+# Windows 保留名垃圾文件：Git Bash 将 /dev/null 传给原生程序后可能生成此文件。
 nul
 dist-ssr
 output
 *.local
 package-lock.json
-playwright-report
-test-results
-packages/devkit-e2e/.sentry-cdn
 
 # Editor directories and files
 .vscode/*
@@ -36,9 +32,5 @@ package.json.[0-9]*
 .sync
 history/*.json
 .vite_cache
-/.skills
-/tasks
-# 品牌字体原始 ttf（约 14MB/字重，仅用于生成子集，不入库；子集产物在 public/fonts/ 需提交）
-tasks/fonts/raw/
 .native-wind-cache
 .vite

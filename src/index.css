@@ -8,7 +8,7 @@
  *   1) core 片  首屏必载，三字重合计 0.725MB —— ASCII + 中英标点 + 源码实际字符 + 仓库语料高频汉字 Top1300
  *   2) rare 片  按需加载（罕用字出现时才下，约 0.95MB/字重）—— GB2312 全量 − core，生僻字不出豆腐块
  *   3) CDN 全量 ttf 兜底（core/rare 都没覆盖时才回源，约 14MB/字重）
- * 由 scripts/build-fonts.py 生成（字集策略与 unicode-range 见该脚本头部注释），随仓库部署。
+ * 字体切片作为静态资源随应用部署。
  * 断网仅剩 core 时：静态文案 100% 覆盖，动态长文本中的生僻字回落系统字体（可接受降级）。
  */
 /* Regular（font-weight: 400）*/
@@ -81,7 +81,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* ===== 设计系统 v2：医疗青绿（docs/DESIGN.md，源自 tasks/ui-design.md）===== */
+    /* ===== 设计系统 v2：医疗青绿 ===== */
     --radius: 0.875rem;
     --background: 210 29% 97%;
     --foreground: 222 47% 11%;
