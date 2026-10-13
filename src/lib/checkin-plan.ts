@@ -75,7 +75,7 @@ export function buildCheckinPlan(texts: (string | null | undefined)[]): CheckinP
   };
 }
 
-// ===== 沿用上一次记录 =====
+// ===== 上一次记录参考 =====
 
 /** 打卡行（checkins 表字段子集，PostgREST 返回 numeric 为 number） */
 export interface RawCheckin {
@@ -92,7 +92,7 @@ export interface RawCheckin {
 export interface CheckinSnapshot {
   /** 展示用日期，如「10月10日」 */
   dayLabel: string;
-  /** 是否就是昨天——决定按钮写「沿用昨日」还是「沿用上次（某日）」 */
+  /** 是否是北京时间的昨天 */
   isYesterday: boolean;
   systolic: number | null;
   diastolic: number | null;
@@ -103,7 +103,7 @@ export interface CheckinSnapshot {
   pain_score: number | null;
 }
 
-// 一律按本机日（患者感知的"今天/昨天"）取日键，不用 UTC——老人不会按 UTC 过日子
+// 按北京时间自然日，与后台提醒及打卡的日界一致。
 function localDayKey(d: Date): string {
   return businessDate(d);
 }
@@ -114,7 +114,7 @@ function nn(v: number | null | undefined): number | null {
 
 /**
  * 取今天之前最近的一次打卡记录（仅用于历史参考）。
- * 优先昨天；昨天没记录时退回最近一次，并把真实日期标注在按钮上——
+ * 优先昨天；昨天没记录时退回最近一次，并显示真实日期——
  * 绝不把几天的旧记录说成"昨天的"。
  */
 export function pickLastCheckin(rows: RawCheckin[], now = new Date()): CheckinSnapshot | null {

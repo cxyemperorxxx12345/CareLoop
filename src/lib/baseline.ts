@@ -48,7 +48,7 @@ const LOCAL_METRICS = ['systolic', 'diastolic', 'heart_rate', 'temperature', 'bl
 
 // 日期键一律取北京时间自然日（YYYY-MM-DD）：
 //   · 与迁移 00021 的北京时间口径一致，保证现算结果与跑批结果一致
-//   · 与前端既有口径一致（趋势图 X 轴就是 created_at.slice(5, 10)）
+//   · 趋势图也使用北京时间日期标签
 function dayKey(d: Date): string {
   return businessDate(d);
 }
@@ -85,7 +85,7 @@ export function computeLocalBaselines(rows: BaselineCheckin[]): BaselineMetric[]
   const latest = new Map<string, BaselineCheckin>();
   for (const row of rows) {
     const key = parseDayKey(row.created_at);
-    if (key && (!latest.has(key) || row.created_at > latest.get(key)!.created_at)) latest.set(key, row);
+    if (key && (!latest.has(key) || Date.parse(row.created_at) > Date.parse(latest.get(key)!.created_at))) latest.set(key, row);
   }
   for (const row of latest.values()) {
     const k = parseDayKey(row.created_at);

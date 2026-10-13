@@ -256,7 +256,7 @@ export const clinicianApi = {
   },
 
   // 处理预警，并给患者回一条回执消息，补上「上报 → 医护处理 → 患者知道」的最后一跳。
-  // 返回 notified=false 表示回执未送达（预警本身已处理成功），调用方需提示但不视为失败。
+  // 处置与回执在同一事务里完成；失败抛错，保留原状态供重试。
   async resolveAlert(
     id: string,
     action: string,
