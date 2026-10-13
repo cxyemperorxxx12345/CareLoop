@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
 import { getMyPatient } from '@/lib/api';
+import { searchLocalKnowledge, type LocalKbHit } from '@/lib/local-kb';
 
 // 识别是否需要联系医护 / 就诊
 const ESCALATION_PATTERN = /(就医|急诊|就诊|联系医生|联系医护|去医院|随访电话|拨打|紧急|危险信号|心内科|心外科|立即前往)/;
@@ -27,6 +28,8 @@ interface ChatMsg {
   id: number;
   role: 'user' | 'assistant';
   content: string;
+  // 助手失败时降级为本地知识库检索结果（明确非 AI 回答）；有正常回答 / 思考中时为 undefined
+  fallback?: LocalKbHit[];
 }
 
 const EXAMPLE_QUESTIONS = ['我现在的药需要空腹吃吗？', '术后伤口有点发红，要紧吗？', '出院后血压控制在多少合适？'];
@@ -51,6 +54,34 @@ function ThinkingIndicator() {
         ))}
       </span>
     </span>
+  );
+}
+
+// 本地知识库兜底卡片：独立样式（琥珀描边），一眼可辨「非 AI 回答」，绝不用 Streamdown 伪装成助手回复。
+function FallbackCard({ hits }: { hits: LocalKbHit[] }) {
+  return (
+    <div className="rounded-xl border border-triage-amber/40 bg-triage-amber-bg/40 p-3">
+      <div className="flex items-center gap-1.5 text-xs font-bold text-triage-amber">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        <span>院内知识库检索 · 非 AI 回答</span>
+      </div>
+      <div className="mt-2 space-y-2.5">
+        {hits.map((h) => (
+          <div key={h.id} className="rounded-lg border border-border/60 bg-card px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-triage-amber/15 px-2 py-0.5 text-[10px] font-medium text-triage-amber">
+                {h.category}
+              </span>
+              <span className="text-sm font-bold text-foreground">{h.title}</span>
+            </div>
+            <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{h.snippet}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">
+        以下来自院内知识库，非 AI 生成回答；个性化问题请联系随访医护。
+      </p>
+    </div>
   );
 }
 
@@ -237,11 +268,38 @@ export function AssistantPage() {
           }
         }
       }
-      if (!stripThink(acc)) updateAssistant(assistantId, '暂时没有获得回答，请换个问法再试一次。');
+      if (!stripThink(acc)) {
+        // 没有任何有效回答时，先尝试本地知识库兜底
+        try {
+          const hits = await searchLocalKnowledge(q);
+          if (hits.length > 0) {
+            setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: '', fallback: hits } : m)));
+            toast('AI 助手暂时连不上，已为您检索院内知识库');
+          } else {
+            updateAssistant(assistantId, '暂时没有获得回答，请换个问法再试一次。');
+          }
+        } catch {
+          updateAssistant(assistantId, '暂时没有获得回答，请换个问法再试一次。');
+        }
+      }
     } catch (e) {
       // 出错保留已生成内容，仅提示
-      if (!stripThink(acc)) updateAssistant(assistantId, '回答中断了，请稍后重试。');
-      toast.error(e instanceof Error ? e.message : '助手暂时不可用，请稍后重试');
+      if (!stripThink(acc)) {
+        // 网络错误 / 服务异常：先尝试本地知识库兜底
+        try {
+          const hits = await searchLocalKnowledge(q);
+          if (hits.length > 0) {
+            setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: '', fallback: hits } : m)));
+            toast('AI 助手暂时连不上，已为您检索院内知识库');
+          } else {
+            updateAssistant(assistantId, '回答中断了，请稍后重试。');
+            toast.error(e instanceof Error ? e.message : '助手暂时不可用，请稍后重试');
+          }
+        } catch {
+          updateAssistant(assistantId, '回答中断了，请稍后重试。');
+          toast.error(e instanceof Error ? e.message : '助手暂时不可用，请稍后重试');
+        }
+      }
     } finally {
       setSending(false);
     }
@@ -280,9 +338,15 @@ export function AssistantPage() {
             return (
               <div key={m.id} className={isUser ? 'flex justify-end' : 'flex justify-start'}>
                 {!isUser && (
-                  <span className="mt-0.5 mr-2 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10">
-                    <Bot className="h-4 w-4 text-primary" />
-                  </span>
+                  m.fallback ? (
+                    <span className="mt-0.5 mr-2 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-triage-amber/10">
+                      <AlertTriangle className="h-4 w-4 text-triage-amber" />
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 mr-2 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10">
+                      <Bot className="h-4 w-4 text-primary" />
+                    </span>
+                  )
                 )}
                 <div
                   className={
@@ -291,9 +355,12 @@ export function AssistantPage() {
                       : 'max-w-[80%] rounded-2xl rounded-bl-md border border-border bg-card px-3.5 py-2.5'
                   }
                 >
-                  {!isUser && <p className="mb-1 text-xs font-medium text-muted-foreground">愈见助手</p>}
+                  {!isUser && !m.fallback && <p className="mb-1 text-xs font-medium text-muted-foreground">愈见助手</p>}
                   {isUser ? (
                     m.content
+                  ) : m.fallback ? (
+                    // 降级卡片：院内知识库检索结果，独立样式，不用 Streamdown 伪装成 AI 回答
+                    <FallbackCard hits={m.fallback} />
                   ) : m.content ? (
                     <>
                       <Streamdown className="text-sm [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-4 [&_ul]:list-disc [&_ul]:pl-4 [&_p]:leading-relaxed">

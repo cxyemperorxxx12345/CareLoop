@@ -79,8 +79,13 @@ function groupMessages(messages: MsgRow[]): MsgGroup[] {
   }
 
   return groups.sort((a, b) => {
+    // 第一关键字：未读优先（置顶）
     if (a.hasUnread !== b.hasUnread) return a.hasUnread ? -1 : 1;
-    if (a.isReminder !== b.isReminder) return a.isReminder ? 1 : -1;
+    // 第二关键字：紧急度降序（urgency 大的在前）
+    const ua = urgencyOf(a.messages[0].type);
+    const ub = urgencyOf(b.messages[0].type);
+    if (ua !== ub) return ub - ua;
+    // 第三关键字：时间倒序（新的在前）
     return b.latestAt - a.latestAt;
   });
 }
@@ -93,6 +98,23 @@ const TYPE_META: Record<string, { label: string; cls: string }> = {
   followup: { label: '随访', cls: 'bg-triage-green-bg text-triage-green' },
   clinician_reply: { label: '回复', cls: 'bg-primary/10 text-primary' },
 };
+
+// 紧急度梯度（数值越大越紧急）——让老人一眼分清轻重
+// escalation 红色预警=5，triage 琥珀分诊=4，clinician_reply 医护回复=3，
+// followup 随访=2，reminder 用药/打卡提醒（属噪音）=1，其余未知类型兜底=1
+const URGENCY_BY_TYPE: Record<string, number> = {
+  escalation: 5,
+  triage: 4,
+  clinician_reply: 3,
+  followup: 2,
+  reminder: 1,
+};
+
+const URGENCY_FALLBACK = 1;
+
+function urgencyOf(type: string): number {
+  return URGENCY_BY_TYPE[type] ?? URGENCY_FALLBACK;
+}
 
 // 相对时间：xx 分钟/小时/天前
 function relativeTime(iso: string): string {
