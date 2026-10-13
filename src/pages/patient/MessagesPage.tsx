@@ -17,9 +17,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ErrorState, RefreshButton } from '@/components/common/AsyncState';
 import { SpeakButton } from '@/components/common/SpeakButton';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
+import { broadcastChange, type SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
+
+// 跨端同步：消息中心只关心 messages 实体
+const SYNC_ENTITIES: SyncEntity[] = ['messages'];
 
 interface MsgRow {
   id: string;
@@ -240,11 +245,18 @@ export function MessagesPage() {
   // 回到前台自动刷新（节流 15s）：提醒扫描 cron 可能已产生新消息
   useRefetchOnFocus(() => void load(true));
 
+  // 跨端实时刷新：其他端写入新消息（升级通知/医护回执）时列表自动更新
+  useRealtimeSync(() => void load(true), SYNC_ENTITIES);
+
   const markRead = (m: MsgRow) => {
     if (m.read) return;
     setList((prev) => prev.map((x) => (x.id === m.id ? { ...x, read: true } : x)));
     setUnread((n) => Math.max(0, n - 1));
-    patientApi.markMessageRead(m.id).catch(() => undefined);
+    // 乐观更新 + 写库成功后广播：其他端（家属镜像/角标）同步已读状态
+    patientApi
+      .markMessageRead(m.id)
+      .then(() => broadcastChange(['messages']))
+      .catch(() => undefined);
   };
 
   // 点击整条：标记已读（乐观更新）并打开详情弹窗
@@ -299,6 +311,8 @@ export function MessagesPage() {
                   const n = await patientApi.markAllMessagesRead(pid);
                   setList((prev) => prev.map((x) => ({ ...x, read: true })));
                   setUnread(0);
+                  // 一键已读成功后广播，让其他端的未读角标同步归零
+                  broadcastChange(['messages']);
                   toast.success(`已将 ${n} 条消息标记为已读`);
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : '操作失败，请稍后重试');

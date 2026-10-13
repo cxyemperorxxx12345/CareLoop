@@ -13,9 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { SpeakButton } from '@/components/common/SpeakButton';
+import { VoiceInputButton } from '@/components/common/VoiceInputButton';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { fnApi, getMyPatient, patientApi } from '@/lib/api';
 import { type BaselineMetric, loadBaselines } from '@/lib/baseline';
+import { broadcastChange } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
 
 interface PatientRow {
@@ -48,6 +50,10 @@ const METRIC_LABEL: Record<string, string> = {
 };
 
 const DURATIONS = ['1天内', '1-3天', '3-7天', '超过7天'] as const;
+
+// 常见症状快选：覆盖术后/慢病人群最常报告的主诉。点一下免打字——
+// 打字是老年用户填自查的最大障碍，快选 + 语音双通道兜底
+const COMMON_SYMPTOMS = ['胸闷', '胸痛', '头晕', '心慌', '恶心', '伤口疼痛', '乏力', '睡不好'] as const;
 
 // 历史记录级别徽章
 const LEVEL_META: Record<string, { label: string; cls: string }> = {
@@ -160,6 +166,13 @@ export function SymptomPage() {
   const baselineSource: BaselineMetric['source'] | null =
     result?.baseline?.available ? 'table' : (fallbackBaseline[0]?.source ?? null);
 
+  // 追加而不覆盖：点选/语音识别都往已有内容后面接（顿号分隔），
+  // 避免误触清空老人已经辛苦输入的内容
+  const appendToComplaint = (text: string) => {
+    const current = complaint.trim();
+    setComplaint(current ? `${current}、${text}` : text);
+  };
+
   const submit = async () => {
     if (!complaint.trim()) {
       toast.error('请填写主要症状');
@@ -177,6 +190,8 @@ export function SymptomPage() {
       })) as TriageResult;
       setResult(triage);
       if (patient) await loadHistory(patient.id);
+      // 提交成功后广播失效通知：医护端实时感知新自查与可能产生的预警（fire-and-forget，失败不影响业务）
+      broadcastChange(['symptom_checks', 'alerts', 'messages']);
       // 结果卡在页面顶部、提交按钮在下方：新结果出现时平滑滚动到结果卡，避免飞出屏幕
       requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     } catch (e) {
@@ -322,11 +337,38 @@ export function SymptomPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="chief">
-              主要症状 <span className="text-destructive">*</span>
-            </Label>
-            <Input id="chief" placeholder="如：伤口疼痛" value={complaint} onChange={(e) => setComplaint(e.target.value)} />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="chief">
+                主要症状 <span className="text-destructive">*</span>
+              </Label>
+              {/* 语音输入入口：不支持的浏览器组件内部自动不渲染，此处无需判断 */}
+              <VoiceInputButton label="主要症状" onResult={appendToComplaint} />
+            </div>
+            {/* 常见症状点选：点一下追加到下方输入框，老年用户免打字 */}
+            <div className="flex flex-wrap gap-2">
+              {COMMON_SYMPTOMS.map((s) => (
+                <Button
+                  key={s}
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-full px-4 text-[15px]"
+                  aria-label={`追加症状：${s}`}
+                  onClick={() => appendToComplaint(s)}
+                >
+                  {s}
+                </Button>
+              ))}
+            </div>
+            {/* 主诉常为一段描述：语音/点选可能凑出较长内容，改用多行文本框（text-base 适老化字号） */}
+            <Textarea
+              id="chief"
+              placeholder="如：伤口疼痛，也可以点上面的按钮或用语音输入"
+              value={complaint}
+              onChange={(e) => setComplaint(e.target.value)}
+              rows={2}
+              className="resize-none rounded-2xl text-base"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

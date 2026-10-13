@@ -19,6 +19,65 @@ function extractKeywords(question: string): string[] {
   return kws.slice(0, 4);
 }
 
+// 构造降级回答：AI 网关不可用时，用已检索到的知识库 + 个人用药上下文拼一段诚实的回答。
+// 明确标注非 AI 回答，绝不编造；命中 0 条时如实说明并引导联系随访医护。
+function buildFallbackText(
+  question: string,
+  knowledge: Array<{ title: string; category: string; content: string }>,
+  medLines: string,
+): string {
+  const parts: string[] = ['（AI 服务暂时不可用，以下为本地知识库检索结果，仅供参考）\n'];
+  if (knowledge.length > 0) {
+    parts.push(`根据您的问题「${question}」，知识库中检索到以下资料：\n`);
+    knowledge.forEach((k, i) => {
+      // 每条截断到 ~200 字，防止超长
+      const content = k.content.length > 200 ? `${k.content.slice(0, 200)}…` : k.content;
+      parts.push(`\n[${i + 1}]《${k.title}》（${k.category}）\n${content}`);
+    });
+    if (medLines) {
+      parts.push(`\n\n您的当前用药（请以出院医嘱为准）：\n${medLines}`);
+    }
+  } else {
+    parts.push(
+      '知识库中暂未找到与您问题直接相关的资料。建议您联系随访医护（消息页可直接留言），或在上班时间拨打随访电话。涉及胸痛、呼吸困难等紧急情况请立即就医。',
+    );
+  }
+  parts.push('\n\n以上内容仅供参考，不构成诊断；若涉及病情变化，请及时就医。');
+  return parts.join('');
+}
+
+// 降级 SSE 响应：chunk 格式与 MiniMax 上游完全一致（choices[0].delta.content），
+// 前端零改动即可渲染；文本切成小块流式下发并加短暂间隔，保留"打字机"体验。
+function fallbackStreamResponse(text: string): Response {
+  const encoder = new TextEncoder();
+  const chunks: string[] = [];
+  for (let i = 0; i < text.length; i += 24) chunks.push(text.slice(i, i + 24));
+  if (chunks.length === 0) chunks.push(text);
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      for (const c of chunks) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: c } }] })}\n\n`),
+        );
+        // 打字机节奏：每块间隔 ~30ms，避免整段瞬间刷出
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Content-Type-Options': 'nosniff',
+      ...corsHeaders,
+    },
+  });
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -100,10 +159,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
     '4. 回答控制在 200 字以内，语气温暖专业。\n' +
     (evidenceTags.length ? `本次可参考来源：${evidenceTags.join('、')}。` : '');
 
-  const streamRes = await callMiniMaxStream([
-    { role: 'system', content: `${systemPrompt}\n\n${personalBlock}\n\n${kbBlock}` },
-    { role: 'user', content: `患者提问：${question}` },
-  ]);
+  let streamRes: Response;
+  try {
+    streamRes = await callMiniMaxStream([
+      { role: 'system', content: `${systemPrompt}\n\n${personalBlock}\n\n${kbBlock}` },
+      { role: 'user', content: `患者提问：${question}` },
+    ]);
+  } catch {
+    // 网关调用抛异常（网络中断 / 配置缺失等）：视为不可用，走降级
+    streamRes = new Response(JSON.stringify({ error: 'AI 网关调用异常' }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // 降级链优先级：AI 正常 > 知识库降级 > 诚实说明。
+  // 网关不可用（非 200 / 空 body / 异常）时，用已检索到的本地知识库拼降级回答，绝不让请求 500。
+  if (streamRes.status !== 200 || !streamRes.body) {
+    return fallbackStreamResponse(buildFallbackText(question, knowledge, medLines));
+  }
 
   // 透传 SSE；补充 CORS 头
   const headers = new Headers(streamRes.headers);

@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, getReminderAdaptInputs, patientApi } from '@/lib/api';
 import {
@@ -28,11 +29,15 @@ import {
   saveSnapshot,
 } from '@/lib/offline-cache';
 import { computeReminderAdapt, type ReminderAdaptResult } from '@/lib/reminder-adapt';
+import { broadcastChange, type SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
 
 const SLOT_LABELS = ['早 8:00', '中 12:00', '晚 18:00', '睡前 21:00'];
 const ACTION_TEXT = { taken: '已服', snoozed: '稍后', skipped: '已跳过' } as const;
 type MedAction = keyof typeof ACTION_TEXT;
+
+// 跨端同步：本页关心的实体（患者/家属打卡、提醒状态、医护处理联动刷新）
+const SYNC_ENTITIES: SyncEntity[] = ['medication_logs', 'reminders', 'checkins', 'messages'];
 
 // 与数据库真实列名一致的本地行类型
 interface PlanRow { id: string; medicine_name: string; spec: string | null; dosage: string | null; frequency: string | null; slots: number[] | null; note: string | null; }
@@ -229,6 +234,9 @@ export function MedicationsPage() {
   // 回到前台自动刷新（节流 15s），让 cron 产生的提醒状态变化及时可见
   useRefetchOnFocus(() => void initLoad(true));
 
+  // 跨端实时刷新：家属代打卡 / 医护处理等动作后，本页无需聚焦即自动更新
+  useRealtimeSync(() => void initLoad(true), SYNC_ENTITIES);
+
   // 执行打卡：联网时直接写库；断网时只入队并本地标记「待补传」，恢复网络后自动重放
   async function performLog(planId: string, slot: number, action: MedAction, logReason?: string) {
     const pid = patientId;
@@ -259,6 +267,8 @@ export function MedicationsPage() {
     setBusy(true);
     try {
       await sendMedicationLog({ pid, planId, slot, action, reason: logReason ?? null });
+      // 写库成功后广播失效：家属端镜像与医护端工作台立刻刷新，无需等聚焦
+      broadcastChange(['medication_logs', 'reminders']);
       toast.success(action === 'taken' ? '已记录服药' : action === 'snoozed' ? '已延后 30 分钟，稍后再提醒您' : '已跳过本次服药');
       await refresh(pid);
     } catch (e) {
@@ -274,6 +284,8 @@ export function MedicationsPage() {
       await replayQueue(async (item) => {
         await sendMedicationLog(item.payload as unknown as MedLogPayload);
       });
+      // 离线补传成功后同样广播，让其他端补齐这批打卡数据
+      broadcastChange(['medication_logs', 'reminders']);
       setQueuedKeys([]);
       void initLoad(true);
     };

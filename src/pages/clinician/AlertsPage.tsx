@@ -26,8 +26,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { clinicianApi } from '@/lib/api';
+import { broadcastChange, type SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
+
+// 跨端同步：预警中心关心 alerts/messages（患者触发新预警、家属响应、其他医护处理）
+const SYNC_ENTITIES: SyncEntity[] = ['alerts', 'messages'];
 
 // ===== 本地类型 =====
 interface AlertPatient {
@@ -233,6 +238,9 @@ export function AlertsPage() {
     void load();
   }, [load]);
 
+  // 跨端实时刷新：患者打卡/症状自查触发新预警、家属响应任务时，预警列表自动更新
+  useRealtimeSync(() => void load(true), SYNC_ENTITIES);
+
   // 统计：未处理红/黄
   const stats = useMemo(() => {
     let red = 0;
@@ -338,6 +346,8 @@ export function AlertsPage() {
     setSubmitting(true);
     try {
       const result = await clinicianApi.resolveAlert(resolveTarget.id, resolveAction, resolveNote.trim(), profile?.id ?? '');
+      // 处理成功后广播：患者端消息、家属端任务与医护工作台立刻同步处理结果
+      broadcastChange(['alerts', 'messages']);
       // 回执没送达也要让处理流程照常完成，只是换个说法告知医护
       if (result.notified) toast.success('预警已处理，已通知患者');
       else if (result.notifyError) toast.warning('预警已处理，但患者通知发送失败，请另行联系患者');

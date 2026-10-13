@@ -8,8 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/db/supabase';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { getFamilyPatient } from '@/lib/api';
+import { broadcastChange, type SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
+
+// 跨端同步：任务列表数据来源是 alerts，订阅 alerts/messages 实体
+const SYNC_ENTITIES: SyncEntity[] = ['alerts', 'messages'];
 
 interface AlertRow {
   id: string;
@@ -74,6 +79,14 @@ export function FamilyTasksPage() {
     };
   }, [refresh]);
 
+  // 跨端实时刷新：患者端打卡、医护端处理或产生新预警时，任务列表自动更新
+  useRealtimeSync(
+    () => {
+      if (pid) void refresh(pid);
+    },
+    SYNC_ENTITIES,
+  );
+
   // 家属响应：contacted 维持观察；escalate 转医护回电（保持黄色，不升级红色）
   async function respond(taskId: string, action: 'contacted' | 'escalate') {
     if (!pid || busy) return;
@@ -85,6 +98,8 @@ export function FamilyTasksPage() {
         p_family_name: familyName,
       });
       if (error) throw error;
+      // 响应写入成功后广播：医护端预警中心/工作台与患者端立刻看到家属处理结果
+      broadcastChange(['alerts', 'reminders', 'messages']);
       toast.success(
         action === 'contacted'
           ? '已记录「我已联系患者」，并标注为由你代填，医护端同步可见'

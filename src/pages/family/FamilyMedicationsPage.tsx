@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { getFamilyPatient, getReminderAdaptInputs } from '@/lib/api';
 import {
   enqueue,
@@ -25,12 +26,16 @@ import {
   saveSnapshot,
 } from '@/lib/offline-cache';
 import { computeReminderAdapt, type ReminderAdaptResult } from '@/lib/reminder-adapt';
+import { broadcastChange, type SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
 
 const SLOT_LABELS = ['早 8:00', '中 12:00', '晚 18:00', '睡前 21:00'];
 const SLOT_HOURS = [8, 12, 18, 21];
 const ACTION_TEXT = { taken: '已服', snoozed: '稍后', skipped: '已跳过' } as const;
 type MedAction = keyof typeof ACTION_TEXT;
+
+// 跨端同步：本页关心的实体（患者本人打卡、医护处理、预警闭合联动刷新）
+const SYNC_ENTITIES: SyncEntity[] = ['medication_logs', 'reminders', 'alerts', 'messages'];
 
 interface PlanRow { id: string; medicine_name: string; spec: string | null; dosage: string | null; frequency: string | null; slots: number[] | null; note: string | null; }
 interface LogRow { plan_id: string; slot: number; action: MedAction; reason: string | null; operator_type: string | null; operator_name: string | null; }
@@ -267,12 +272,22 @@ export function FamilyMedicationsPage() {
     void initLoad();
   }, [initLoad]);
 
+  // 跨端实时刷新：患者本人打卡或医护处理导致计划/记录变化时，本页静默更新（只刷数据不回骨架）
+  useRealtimeSync(
+    () => {
+      if (pid) void refresh(pid);
+    },
+    SYNC_ENTITIES,
+  );
+
   // 网络恢复：先重放离线队列补传，再拉新数据覆盖快照
   useEffect(() => {
     const onOnline = async () => {
       await replayQueue(async (item) => {
         await sendFamilyMedicationLog(item.payload as unknown as FamilyLogPayload);
       });
+      // 离线补传成功后同样广播，让其他端补齐这批代打卡数据
+      broadcastChange(['medication_logs', 'reminders', 'alerts', 'messages']);
       setQueuedKeys([]);
       void initLoad();
     };
@@ -317,6 +332,9 @@ export function FamilyMedicationsPage() {
         reason: attributedReason(logReason, familyName),
         familyName,
       });
+      // 代打卡写库成功后广播：患者端首页/用药页与医护端工作台立刻刷新
+      // （taken 还会经 family_respond_alert 闭合升级任务，故带上 alerts/messages）
+      broadcastChange(['medication_logs', 'reminders', 'alerts', 'messages']);
       if (action === 'taken') {
         toast.success(`已记录，并标注为由你代填（家属 ${familyName}），患者端与医护端同步可见`);
       } else if (action === 'snoozed') {

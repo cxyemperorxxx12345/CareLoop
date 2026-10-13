@@ -1,5 +1,5 @@
 // 家属端消息中心：照护对象的提醒类消息（点击查看完整详情弹窗）
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Bell, CalendarHeart, Clock, MessageCircle, Pill } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/db/supabase';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { getFamilyPatient } from '@/lib/api';
+import type { SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
+
+// 跨端同步：消息中心只关心 messages 实体
+const SYNC_ENTITIES: SyncEntity[] = ['messages'];
 
 interface MsgRow {
   id: string;
@@ -45,9 +50,10 @@ export function FamilyMessagesPage() {
   const [msgs, setMsgs] = useState<MsgRow[]>([]);
   const [activeMsg, setActiveMsg] = useState<MsgRow | null>(null);
 
-  useEffect(() => {
+  // 拉取消息列表（挂载加载与跨端实时刷新共用）；返回取消函数防卸载后 setState
+  const load = useCallback(() => {
     let alive = true;
-    (async () => {
+    void (async () => {
       try {
         const fp = await getFamilyPatient();
         if (!alive) return;
@@ -69,6 +75,19 @@ export function FamilyMessagesPage() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    const off = load();
+    return off;
+  }, [load]);
+
+  // 跨端实时刷新：cron 或其他端写入新提醒/升级通知时列表自动更新
+  useRealtimeSync(
+    () => {
+      load();
+    },
+    SYNC_ENTITIES,
+  );
 
   if (loading) {
     return (

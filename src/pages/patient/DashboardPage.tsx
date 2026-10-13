@@ -16,10 +16,15 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/db/supabase';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
 import { isOffline, readSnapshot, saveSnapshot } from '@/lib/offline-cache';
+import type { SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
+
+// 跨端同步：本页关心的实体（其他端打卡/发消息/医护处理后自动刷新今日概览）
+const SYNC_ENTITIES: SyncEntity[] = ['medication_logs', 'reminders', 'checkins', 'messages'];
 
 // 时间槽常量
 const SLOT_LABELS = ['早 8:00', '中 12:00', '晚 18:00', '睡前 21:00'];
@@ -166,6 +171,9 @@ export function DashboardPage() {
 
   // 回到前台自动刷新（节流 15s），让 cron 产生的新提醒/消息及时可见
   useRefetchOnFocus(() => void load(true));
+
+  // 跨端实时刷新：患者/家属打卡、医护处理后无需聚焦，本页今日概览自动更新
+  useRealtimeSync(() => void load(true), SYNC_ENTITIES);
 
   // 网络恢复后自动拉新，替代离线快照
   useEffect(() => {

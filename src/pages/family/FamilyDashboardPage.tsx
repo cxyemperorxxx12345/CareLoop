@@ -1,7 +1,7 @@
 // 家属端首页：照护对象今日状态卡（只读）+ 待我处理升级任务（红色优先）+ 近期随访
 
 import { CalendarHeart, ChevronRight, ClipboardCheck, HeartPulse, Pill, ShieldAlert } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CareRiskCard } from '@/components/common/CareRiskCard';
@@ -12,8 +12,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/db/supabase';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { getCareRiskInputs, getFamilyPatient } from '@/lib/api';
 import { type CareRiskResult, computeCareRisk } from '@/lib/carerisk';
+import type { SyncEntity } from '@/lib/sync-bus';
+
+// 跨端同步：本页关心的实体（患者打卡、预警/随访变化联动刷新今日状态）
+const SYNC_ENTITIES: SyncEntity[] = [
+  'medication_logs',
+  'reminders',
+  'checkins',
+  'messages',
+  'alerts',
+  'followups',
+];
 
 const SLOT_LABELS = ['早 8:00', '中 12:00', '晚 18:00', '睡前 21:00'];
 const SLOT_HOURS = [8, 12, 18, 21];
@@ -51,9 +63,10 @@ export function FamilyDashboardPage() {
   // 机制②：照护对象履约风险预测（展示层）
   const [careRisk, setCareRisk] = useState<CareRiskResult | null>(null);
 
-  useEffect(() => {
+  // 拉取照护对象今日数据（挂载加载与跨端实时刷新共用）；返回取消函数防卸载后 setState
+  const load = useCallback(() => {
     let alive = true;
-    (async () => {
+    void (async () => {
       try {
         const fp = await getFamilyPatient();
         if (!alive) return;
@@ -90,6 +103,19 @@ export function FamilyDashboardPage() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    const off = load();
+    return off;
+  }, [load]);
+
+  // 跨端实时刷新：患者/医护端打卡、处理预警后，本页今日状态自动更新（静默，不回骨架）
+  useRealtimeSync(
+    () => {
+      load();
+    },
+    SYNC_ENTITIES,
+  );
 
   if (loading) {
     return (

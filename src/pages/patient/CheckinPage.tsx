@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/db/supabase';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { getMyPatient, patientApi } from '@/lib/api';
 import { type BaselineMetric, loadBaselines } from '@/lib/baseline';
@@ -27,6 +28,10 @@ import {
   buildCheckinPlan,
   pickLastCheckin,
 } from '@/lib/checkin-plan';
+import { broadcastChange, type SyncEntity } from '@/lib/sync-bus';
+
+// 跨端同步：打卡页只关心 checkins 实体
+const SYNC_ENTITIES: SyncEntity[] = ['checkins'];
 
 interface CheckinRow {
   systolic: number | null;
@@ -348,6 +353,14 @@ export function CheckinPage() {
     if (patient) void loadChart(patient.id, true);
   });
 
+  // 跨端实时刷新：打卡写入（含本页提交后的广播回环）后趋势图自动更新
+  useRealtimeSync(
+    () => {
+      if (patient) void loadChart(patient.id, true);
+    },
+    SYNC_ENTITIES,
+  );
+
   /** 沿用上一次记录的数值：只填 UI，并明确提示这是沿用、不是今天新测的 */
   const applyLastCheckin = () => {
     if (!lastCheckin) return;
@@ -413,6 +426,8 @@ export function CheckinPage() {
         note: note.trim() || null,
       });
       if (error) throw error;
+      // 打卡写入成功后广播：医护端工作台/360 视图与家属端立刻看到新体征
+      broadcastChange(['checkins']);
       const feedback = buildCheckinFeedback(submitted, baselines);
       setSavedFeedback(feedback);
       // toast 留久一点，老人看得完

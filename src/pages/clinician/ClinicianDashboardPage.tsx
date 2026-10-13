@@ -1,5 +1,5 @@
 // 医护工作台概览：4 指标卡（大字号）+ 待办列表（红色优先，按严重度+时间排序）
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
@@ -14,6 +14,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/db/supabase';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
+import type { SyncEntity } from '@/lib/sync-bus';
+
+// 跨端同步：工作台指标数据来源（预警/打卡/消息/今日依从/随访），宁可多订阅
+const SYNC_ENTITIES: SyncEntity[] = [
+  'alerts',
+  'checkins',
+  'messages',
+  'medication_logs',
+  'followups',
+];
 
 interface PatientRow {
   id: string;
@@ -73,9 +84,10 @@ export function ClinicianDashboardPage() {
   const [todayFollowups, setTodayFollowups] = useState<FollowupRow[]>([]);
   const [adherence, setAdherence] = useState<number | null>(null);
 
-  useEffect(() => {
+  // 拉取工作台四类指标（挂载加载与跨端实时刷新共用）；返回取消函数防卸载后 setState
+  const load = useCallback(() => {
     let alive = true;
-    (async () => {
+    void (async () => {
       try {
         const today = todayStr();
         // 并行拉取四类数据
@@ -105,6 +117,19 @@ export function ClinicianDashboardPage() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    const off = load();
+    return off;
+  }, [load]);
+
+  // 跨端实时刷新：患者打卡、家属代打卡、医护处理预警后，指标卡与待办自动更新（静默，不回骨架）
+  useRealtimeSync(
+    () => {
+      load();
+    },
+    SYNC_ENTITIES,
+  );
 
   // 待办排序：红色优先，同级按时间倒序
   const sortedAlerts = [...openAlerts].sort((a, b) => {

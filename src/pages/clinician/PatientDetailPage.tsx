@@ -1,7 +1,7 @@
 // 患者 360 视图：时间轴 / 档案 / 用药 / 随访 / 体征 / 事件 六页签，一次拉取全部数据
 
 import { ArrowLeft, FileText, Users } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
@@ -14,10 +14,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/db/supabase';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { clinicianApi, getCareRiskInputs } from '@/lib/api';
 import { type BaselineMetric, loadBaselines } from '@/lib/baseline';
 import { type CareRiskResult, computeCareRisk } from '@/lib/carerisk';
+import type { SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
+
+// 跨端同步：360 视图数据来源（预警/打卡/症状/消息/用药），患者或家属一动数据就刷新
+const SYNC_ENTITIES: SyncEntity[] = [
+  'alerts',
+  'checkins',
+  'symptom_checks',
+  'messages',
+  'medication_logs',
+];
 
 // 与数据库真实列名一致的本地行类型
 interface PatientRow {
@@ -397,11 +408,11 @@ export function PatientDetailPage() {
   // 已绑定家属（M5：care_relations 照护协同信息）
   const [family, setFamily] = useState<FamilyRow[]>([]);
 
-  // 一次拉取患者 360 数据
-  useEffect(() => {
+  // 一次拉取患者 360 数据（挂载加载与跨端实时刷新共用）；返回取消函数防卸载后 setState
+  const load = useCallback(() => {
     if (!id) return;
     let alive = true;
-    (async () => {
+    void (async () => {
       try {
         const d = await clinicianApi.patientDetail(id);
         if (!alive) return;
@@ -436,8 +447,23 @@ export function PatientDetailPage() {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [id]);
+
+  useEffect(() => {
+    const off = load();
+    return off;
+  }, [load]);
+
+  // 跨端实时刷新：患者打卡/家属代填/预警处理/医护回执后，时间轴与各页签自动更新（静默，不回骨架）
+  useRealtimeSync(
+    () => {
+      load();
+    },
+    SYNC_ENTITIES,
+  );
 
   // 近 7 天打卡索引：plan|date|slot → 整条日志（含家属代填来源）
   const logMap = useMemo(() => {
