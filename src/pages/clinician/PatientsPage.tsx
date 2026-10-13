@@ -1,3 +1,4 @@
+import { businessDate } from '@/lib/business-date';
 // 患者管理：筛选栏 + 患者总表（依从率 / 最新打卡 / 未处理预警聚合）
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -100,7 +101,7 @@ export function PatientsPage() {
         return;
       }
       const ids = data.map((p) => p.id);
-      const since7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const since7 = businessDate(Date.now() - 7 * 24 * 3600 * 1000);
       const since7iso = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
       // 机制②：方案 + 症状与依从/打卡/预警一并聚合，避免 N+1
       const [logRes, checkinRes, alertRes, planRes, symRes] = await Promise.all([

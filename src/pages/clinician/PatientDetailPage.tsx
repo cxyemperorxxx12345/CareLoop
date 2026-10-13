@@ -1,3 +1,4 @@
+import { businessDate } from '@/lib/business-date';
 // 患者 360 视图：时间轴 / 档案 / 用药 / 随访 / 体征 / 事件 六页签，一次拉取全部数据
 
 import { ArrowLeft, FileText, Users } from 'lucide-react';
@@ -117,7 +118,7 @@ function relTime(iso: string): string {
 function last7Days(): string[] {
   const days: string[] = [];
   for (let i = 6; i >= 0; i -= 1) {
-    days.push(new Date(Date.now() - i * 24 * 3600 * 1000).toISOString().slice(0, 10));
+    days.push(businessDate(Date.now() - i * 24 * 3600 * 1000));
   }
   return days;
 }
@@ -260,7 +261,7 @@ function buildTimeline(d: Detail): { past: TimelineEvent[]; upcoming: TimelineEv
   }
 
   // ④ 随访：已完成 / 逾期 / 未来待办
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = businessDate();
   for (const f of d.followups) {
     const overdue = !f.done && f.due_date < todayStr;
     const planned = !f.done && !overdue;
@@ -487,7 +488,7 @@ export function PatientDetailPage() {
   // 体征图表数据与统计
   const chartData = useMemo(
     () => (data?.checkins30 ?? []).map((c) => ({
-      label: c.created_at.slice(5, 10),
+      label: businessDate(c.created_at).slice(5, 10),
       systolic: c.systolic,
       diastolic: c.diastolic,
       temperature: c.temperature,

@@ -35,7 +35,7 @@ interface SymptomItem {
 }
 interface ReportStats {
   period_days: number;
-  adherence: { taken: number; skipped: number; snoozed: number; answered: number; compliance_rate: number };
+  adherence: { taken: number; skipped: number; snoozed: number; answered: number; scheduled?: number; unconfirmed?: number; compliance_rate: number | null };
   vitals: { records: number; systolic_avg: number; diastolic_avg: number; heart_rate_avg: number; temperature_max: number; note?: string };
   symptoms: SymptomItem[];
   alerts: { total: number; open: number; red: number; yellow: number };
@@ -302,13 +302,13 @@ export function ReportsPage() {
                     <div className="grid gap-3 md:grid-cols-3">
                       {/* 依从率 */}
                       <div className="rounded-xl bg-muted p-3">
-                        <p className="text-xs text-muted-foreground">用药依从率</p>
+                        <p className="text-xs text-muted-foreground">确认服药比例</p>
                         <p className="text-2xl font-black mt-1">
-                          {num(stats.adherence?.compliance_rate)}%
+                          {stats.adherence?.compliance_rate == null ? '暂无足够数据' : `${num(stats.adherence.compliance_rate)}%`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           已服 {num(stats.adherence?.taken)} · 跳过 {num(stats.adherence?.skipped)} ·
-                          延迟 {num(stats.adherence?.snoozed)}
+                          稍后 {num(stats.adherence?.snoozed)} · 未确认 {num(stats.adherence?.unconfirmed)}
                         </p>
                       </div>
                       {/* 体征摘要 */}

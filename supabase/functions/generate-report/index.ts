@@ -1,3 +1,5 @@
+import { businessDate, businessDayStart, shiftDate } from '../_shared/business-date.ts';
+import { reportAdherence } from '../_shared/report-adherence.ts';
 // CareLoop 随访报告：医护触发，聚合依从率/体征/症状/预警 + MiniMax 生成小结
 import { handleOptions, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { getAdminClient, getUserClient, getAuthUser } from '../_shared/supabase.ts';
@@ -35,22 +37,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!patient) return errorResponse('患者不存在', 404);
   const p = patient as unknown as { id: string; name: string; diagnosis: string | null; discharge_date: string };
 
-  const startDate = new Date(Date.now() - periodDays * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const now = new Date();
+  const startDay = shiftDate(businessDate(now), -(periodDays - 1));
+  const startDate = businessDayStart(startDay);
 
-  // ===== 聚合统计（数字全部以数据库为准，不信任模型生成） =====
-  const { data: logs } = await admin
-    .from('medication_logs')
-    .select('action')
-    .eq('patient_id', patientId)
-    .gte('log_date', startDate);
-  const logRows = (logs ?? []) as Array<{ action: string }>;
-  const taken = logRows.filter((l) => l.action === 'taken').length;
-  const skipped = logRows.filter((l) => l.action === 'skipped').length;
-  const snoozed = logRows.filter((l) => l.action === 'snoozed').length;
-  const answered = taken + skipped + snoozed;
-  const complianceRate = answered ? Math.round((taken / answered) * 100) : 100;
+  // 分母来自已到期的应服计划/留存提醒，未确认的剂量也计入。
+  const queries = await Promise.all([
+    admin.from('medication_plans').select('id, slots, active, created_at').eq('patient_id', patientId),
+    admin.from('reminders').select('plan_id, slot, remind_date').eq('patient_id', patientId).gte('remind_date', startDay),
+    admin.from('medication_logs').select('plan_id, slot, log_date, action').eq('patient_id', patientId).gte('log_date', startDay),
+  ]);
+  if (queries.some((q) => q.error)) return errorResponse('读取用药统计失败，请重试', 500);
+  const adherence = reportAdherence(queries[0].data ?? [], queries[1].data ?? [], queries[2].data ?? [], startDay, now);
+  const { taken, skipped, snoozed, scheduled, unconfirmed, compliance_rate: complianceRate } = adherence;
+  const rateText = complianceRate === null ? '暂无足够数据' : `${complianceRate}%`;
 
-  const { data: vitals } = await admin
+  const { data: vitals, error: vitalsError } = await admin
     .from('checkins')
     .select('systolic, diastolic, heart_rate, temperature')
     .eq('patient_id', patientId)
@@ -69,26 +71,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     temperature_max: temps.length ? Math.max(...temps) : null,
   };
 
-  const { data: symptoms } = await admin
+  const { data: symptoms, error: symptomsError } = await admin
     .from('symptom_checks')
     .select('chief_complaint, level, created_at')
     .eq('patient_id', patientId)
     .gte('created_at', startDate)
-    .order('created_at', { ascending: false })
-    .limit(5);
+    .order('created_at', { ascending: false });
   const symptomRows = (symptoms ?? []) as Array<{ chief_complaint: string; level: string; created_at: string }>;
 
-  const { data: alerts } = await admin
+  const { data: alerts, error: alertsError } = await admin
     .from('alerts')
     .select('level, status')
     .eq('patient_id', patientId)
     .gte('created_at', startDate);
   const alertRows = (alerts ?? []) as Array<{ level: string; status: string }>;
 
+  if (vitalsError || symptomsError || alertsError) return errorResponse('读取随访统计失败，请重试', 500);
+
   const stats = {
     period_days: periodDays,
     period_start: startDate,
-    adherence: { taken, skipped, snoozed, answered, compliance_rate: complianceRate },
+    adherence,
     vitals: vitalsSummary,
     symptoms: symptomRows,
     alerts: {
@@ -114,7 +117,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         role: 'user',
         content:
           `患者：${p.name}，诊断：${p.diagnosis ?? '未知'}，出院日期：${p.discharge_date}，统计周期：近 ${periodDays} 天。\n` +
-          `用药打卡：应打 ${stats.adherence.answered} 次，已服 ${taken}，跳过 ${skipped}，稍后 ${snoozed}，依从率 ${complianceRate}%。\n` +
+          `用药打卡：应打 ${scheduled} 次，已服 ${taken}，跳过 ${skipped}，稍后 ${snoozed}，未确认 ${unconfirmed}，确认服药比例 ${rateText}。\n` +
           `体征记录 ${vitalsSummary.records} 条：血压均值 ${vitalsSummary.systolic_avg ?? '-'}/${vitalsSummary.diastolic_avg ?? '-'}mmHg，` +
           `心率均值 ${vitalsSummary.heart_rate_avg ?? '-'} 次/分，体温最高 ${vitalsSummary.temperature_max ?? '-'}℃。\n` +
           `症状自查 ${symptomRows.length} 次：${symptomRows.map((s) => `${s.chief_complaint}(${s.level})`).join('、') || '无'}。\n` +
@@ -123,7 +126,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ], { maxCompletionTokens: 2048, temperature: 0.5 });
     summary = String(extractJsonObject(extractContent(data)).summary ?? '');
   } catch {
-    summary = `近 ${periodDays} 天用药依从率 ${complianceRate}%，体征记录 ${vitalsSummary.records} 条，预警 ${alertRows.length} 条，建议按计划继续随访。`;
+    summary = `近 ${periodDays} 天用药确认服药比例 ${rateText}，体征记录 ${vitalsSummary.records} 条，预警 ${alertRows.length} 条，建议按计划继续随访。`;
   }
 
   const { data: report, error: repErr } = await admin

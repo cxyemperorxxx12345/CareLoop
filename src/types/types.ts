@@ -194,7 +194,7 @@ export interface FollowupReport {
   period_end: string;
   content: {
     period_days: number;
-    compliance_rate: number;
+    compliance_rate: number | null;
     summary: string;
     vitals_summary?: {
       bp_avg?: string;

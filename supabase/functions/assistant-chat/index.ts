@@ -1,24 +1,10 @@
+import { extractKnowledgeKeywords } from '../_shared/knowledge-keywords.ts';
 // CareLoop 智能问答：个人医嘱 + 知识库双路检索，MiniMax SSE 流式回答
 import { handleOptions, jsonResponse, errorResponse, corsHeaders } from '../_shared/cors.ts';
 import { getAdminClient, getAuthUser } from '../_shared/supabase.ts';
 import { callMiniMaxStream } from '../_shared/minimax.ts';
 
 // 从问题中提取关键词（≥2字）用于知识库模糊检索
-function extractKeywords(question: string): string[] {
-  const cleaned = question.replace(/[，。！？、,.!?？:：;；\s]/g, ' ');
-  const tokens = cleaned.split(' ').filter((t) => t.length >= 2);
-  if (tokens.length > 0) return tokens.slice(0, 4);
-  // 无空格的中文整句：滑动 2-4 字窗口取子串
-  const raw = question.replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, '');
-  const kws: string[] = [];
-  for (let len = 4; len >= 2 && kws.length < 4; len--) {
-    for (let i = 0; i + len <= raw.length && kws.length < 4; i += len) {
-      kws.push(raw.slice(i, i + len));
-    }
-  }
-  return kws.slice(0, 4);
-}
-
 // 构造降级回答：AI 网关不可用时，用已检索到的知识库 + 个人用药上下文拼一段诚实的回答。
 // 明确标注非 AI 回答，绝不编造；命中 0 条时如实说明并引导联系随访医护。
 function buildFallbackText(
@@ -122,7 +108,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .join('\n');
 
   // 知识库检索：关键词 ilike，最多 3 条
-  const keywords = extractKeywords(question);
+  const keywords = extractKnowledgeKeywords(question);
   let knowledge: Array<{ title: string; category: string; content: string }> = [];
   if (keywords.length > 0) {
     const orFilter = keywords.map((k) => `title.ilike.%${k}%,content.ilike.%${k}%`).join(',');
