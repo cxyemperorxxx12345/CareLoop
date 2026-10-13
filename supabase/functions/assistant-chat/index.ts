@@ -1,3 +1,4 @@
+import { needsSafetyResponse, SAFETY_RESPONSE } from '../_shared/assistant-safety.ts';
 import { extractKnowledgeKeywords } from '../_shared/knowledge-keywords.ts';
 // CareLoop 智能问答：个人医嘱 + 知识库双路检索，MiniMax SSE 流式回答
 import { handleOptions, jsonResponse, errorResponse, corsHeaders } from '../_shared/cors.ts';
@@ -78,8 +79,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch {
     return errorResponse('请求体必须是 JSON');
   }
-  const question = (body.question ?? '').trim();
+  if (typeof body.question !== 'string') return errorResponse('问题必须是文字');
+  const question = body.question.trim();
+  if (question.length > 2000) return errorResponse('问题过长，请控制在 2000 字以内');
   if (!question) return errorResponse('请输入问题');
+  if (needsSafetyResponse(question)) return jsonResponse({ mode: 'safety', message: SAFETY_RESPONSE });
 
   const admin = getAdminClient();
   const { data: patient } = await admin
@@ -143,6 +147,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     '2. 资料中无依据时，明确说“现有资料无法回答”，并建议联系随访医护，不要编造。\n' +
     '3. 不做确诊、不调整用药剂量；涉及病情变化一律建议及时就医。\n' +
     '4. 回答控制在 200 字以内，语气温暖专业。\n' +
+    '5. 对自伤、轻生或强烈绝望的表达，先关心当前安全并引导联系身边可信的人；有立即危险时建议急救。不提供伤害方法，不承诺已通知他人，不用知识库无依据作为拒绝关心的理由。\n' +
     (evidenceTags.length ? `本次可参考来源：${evidenceTags.join('、')}。` : '');
 
   let streamRes: Response;

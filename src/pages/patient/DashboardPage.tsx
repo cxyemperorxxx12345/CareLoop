@@ -417,14 +417,14 @@ export function DashboardPage() {
               <div className="flex gap-4">
                 <div className="min-w-0 flex-1">
                   <p className="sig-num text-lg font-semibold">
-                    {latest.systolic && latest.diastolic ? `${latest.systolic}/${latest.diastolic}` : '--/--'}{' '}
+                    {latest.systolic && latest.diastolic ? `${latest.systolic}/${latest.diastolic}` : '本次未填写'}{' '}
                     <span className="text-xs font-normal text-muted-foreground">mmHg</span>
                   </p>
                   <p className="text-xs text-muted-foreground">血压</p>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="sig-num text-lg font-semibold">
-                    {latest.heart_rate ?? '--'} <span className="text-xs font-normal text-muted-foreground">次/分</span>
+                    {latest.heart_rate ?? '本次未填写'} <span className="text-xs font-normal text-muted-foreground">次/分</span>
                   </p>
                   <p className="text-xs text-muted-foreground">心率</p>
                 </div>

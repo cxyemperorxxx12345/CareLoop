@@ -1,3 +1,4 @@
+import { validateVitals } from '../_shared/vital-validation.ts';
 import { businessDate, businessDayStart } from '../_shared/business-date.ts';
 // CareLoop 症状分诊：群体安全阈值 + 个体轨迹偏离 双通道（机制①判定层）
 //   - 群体通道：危险体征（体温≥39 / 收缩压≥180）直接红色，non-negotiable
@@ -54,10 +55,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return errorResponse('请求体必须是 JSON');
   }
 
-  const chief = (body.chief_complaint ?? '').trim();
+  if (typeof body.chief_complaint !== 'string') return errorResponse('主要症状必须是文字');
+  if (body.accompanying != null && typeof body.accompanying !== 'string') return errorResponse('伴随症状必须是文字');
+  const chief = body.chief_complaint.trim();
   if (!chief) return errorResponse('请描述主要症状');
   const accompanying = (body.accompanying ?? '').trim();
-  const severity = Math.min(10, Math.max(1, Number(body.severity ?? 5)));
+  const severity = body.severity ?? 5;
+  if (typeof severity !== 'number' || !Number.isInteger(severity) || severity < 0 || severity > 10) return errorResponse('严重度请填写 0–10 的整数');
+  const vitalError = validateVitals(body);
+  if (vitalError) return errorResponse(vitalError);
   const temperature = body.temperature ?? null;
   const systolic = body.systolic ?? null;
   const diastolic = body.diastolic ?? null;

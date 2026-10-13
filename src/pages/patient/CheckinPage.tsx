@@ -1,8 +1,9 @@
+import { parseVitalNumber, validateVitals } from '../../../supabase/functions/_shared/vital-validation';
 import { businessDate, businessDayStart, shiftDate } from '@/lib/business-date';
 // 健康打卡：今日建议项置顶 + 其余折叠 + 上次记录参考 + 提交后人话反馈 + 近14天趋势图
 
 import { Activity, CalendarCheck2, CheckCircle2, ChevronDown, ChevronUp, History, ListChecks, TriangleAlert } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
@@ -56,28 +57,8 @@ interface PatientProfile {
   instructions?: string | null;
 }
 
-// 字符串转数字，空值/非法返回 null
-function num(v: string): number | null {
-  const n = parseFloat(v);
-  return Number.isNaN(n) ? null : n;
-}
-
-/**
- * 体征合理区间表：集中管理，便于后续按临床口径统一调整。
- * 未填写（null）一律放行，保持「可留空」语义，只在填了值时做区间校验。
- */
-const VITAL_RANGES = {
-  heart_rate: { min: 30, max: 200, label: '心率', unit: '次/分' },
-  temperature: { min: 33, max: 42, label: '体温', unit: '℃' },
-  systolic: { min: 60, max: 260, label: '收缩压', unit: 'mmHg' },
-  diastolic: { min: 30, max: 180, label: '舒张压', unit: 'mmHg' },
-  // 任务包未指定，取值待确认：血糖（mmol/L）保守取 2.0–30.0
-  glucose: { min: 2, max: 30, label: '血糖', unit: 'mmol/L' },
-  // 任务包未指定，取值待确认：体重（kg）保守取 20–200
-  weight: { min: 20, max: 200, label: '体重', unit: 'kg' },
-} as const;
-
-type VitalRangeKey = keyof typeof VITAL_RANGES;
+const num = parseVitalNumber;
+type VitalRangeKey = 'heart_rate' | 'temperature' | 'systolic' | 'diastolic' | 'glucose' | 'weight';
 
 const EMPTY_VALS: Record<VitalRangeKey, string> = {
   heart_rate: '',
@@ -88,25 +69,12 @@ const EMPTY_VALS: Record<VitalRangeKey, string> = {
   weight: '',
 };
 
-/** 提交前统一校验：返回第一条不合规提示（温和归因式文案），全部合规返回 null */
-function findVitalRangeIssue(values: Record<VitalRangeKey, number | null>): string | null {
-  for (const key of Object.keys(VITAL_RANGES) as VitalRangeKey[]) {
-    const v = values[key];
-    if (v === null) continue; // 未填写：可留空，不校验
-    const { min, max, label, unit } = VITAL_RANGES[key];
-    if (v < min || v > max) {
-      return `${label}一般在 ${min}–${max} ${unit}之间，您填的是 ${v}，麻烦再核对一下～`;
-    }
-  }
-  return null;
-}
-
 // 单值输入项的元信息：血压（两个框）和疼痛评分（滑块）单独渲染
 const SINGLE_FIELDS: Partial<Record<CheckinFieldKey, { key: VitalRangeKey; id: string; label: string; placeholder: string; inputMode: 'numeric' | 'decimal' }>> = {
-  heart_rate: { key: 'heart_rate', id: 'hr', label: '心率（次/分）', placeholder: '72', inputMode: 'numeric' },
-  glucose: { key: 'glucose', id: 'glu', label: '血糖（mmol/L）', placeholder: '5.6', inputMode: 'decimal' },
-  temperature: { key: 'temperature', id: 'temp', label: '体温（°C）', placeholder: '36.5', inputMode: 'decimal' },
-  weight: { key: 'weight', id: 'weight', label: '体重（kg）', placeholder: '60', inputMode: 'decimal' },
+  heart_rate: { key: 'heart_rate', id: 'hr', label: '心率（次/分）', placeholder: '填写实测心率', inputMode: 'numeric' },
+  glucose: { key: 'glucose', id: 'glu', label: '血糖（mmol/L）', placeholder: '填写实测血糖', inputMode: 'decimal' },
+  temperature: { key: 'temperature', id: 'temp', label: '体温（°C）', placeholder: '填写实测体温', inputMode: 'decimal' },
+  weight: { key: 'weight', id: 'weight', label: '体重（kg）', placeholder: '填写实测体重', inputMode: 'decimal' },
 };
 
 function VitalInput({
@@ -129,9 +97,8 @@ function VitalInput({
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
-        type="number"
+        type="text"
         inputMode={inputMode}
-        step="0.1"
         className="h-12 rounded-xl px-3 text-lg sig-num"
         placeholder={placeholder}
         value={value}
@@ -148,12 +115,14 @@ function FieldGrid({
   setVal,
   pain,
   setPain,
+  markPain,
 }: {
   fields: CheckinFieldKey[];
   vals: Record<VitalRangeKey, string>;
   setVal: (k: VitalRangeKey, v: string) => void;
   pain: number;
   setPain: (v: number) => void;
+  markPain: () => void;
 }) {
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -161,8 +130,8 @@ function FieldGrid({
         if (f === 'blood_pressure') {
           return (
             <Fragment key="blood_pressure">
-              <VitalInput id="sys" label="收缩压（mmHg）" placeholder="120" inputMode="numeric" value={vals.systolic} onChange={(v) => setVal('systolic', v)} />
-              <VitalInput id="dia" label="舒张压（mmHg）" placeholder="80" inputMode="numeric" value={vals.diastolic} onChange={(v) => setVal('diastolic', v)} />
+              <VitalInput id="sys" label="收缩压（mmHg）" placeholder="填写实测收缩压" inputMode="numeric" value={vals.systolic} onChange={(v) => setVal('systolic', v)} />
+              <VitalInput id="dia" label="舒张压（mmHg）" placeholder="填写实测舒张压" inputMode="numeric" value={vals.diastolic} onChange={(v) => setVal('diastolic', v)} />
             </Fragment>
           );
         }
@@ -172,7 +141,7 @@ function FieldGrid({
               <Label>
                 疼痛评分（<span className="sig-num">{pain}</span>/10）
               </Label>
-              <Slider value={[pain]} onValueChange={(v) => setPain(v[0] ?? 0)} min={0} max={10} step={1} />
+              <Slider onPointerDown={markPain} onKeyDown={(e) => { if (/^(Arrow|Home|End)/.test(e.key)) markPain(); }} value={[pain]} onValueChange={(v) => setPain(v[0] ?? 0)} min={0} max={10} step={1} />
             </div>
           );
         }
@@ -201,7 +170,7 @@ async function submitDailyCheckin(args: {
   temperature: number | null;
   blood_glucose: number | null;
   weight: number | null;
-  pain_score: number;
+  pain_score: number | null;
   note: string | null;
 }): Promise<{ error: { message: string } | null }> {
   const payload = {
@@ -239,7 +208,7 @@ async function submitDailyCheckin(args: {
   const dayEnd = businessDayStart(shiftDate(day, 1));
   const { data: existing, error: selErr } = await supabase
     .from('checkins')
-    .select('id')
+    .select('id, systolic, diastolic, heart_rate, temperature, blood_glucose, weight, pain_score, note')
     .eq('patient_id', args.patientId)
     .gte('created_at', dayStart)
     .lt('created_at', dayEnd)
@@ -248,7 +217,8 @@ async function submitDailyCheckin(args: {
   if (selErr) return { error: selErr };
 
   if (existing && existing.length > 0) {
-    const { error: updErr } = await supabase.from('checkins').update(payload).eq('id', existing[0].id);
+    const retained = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== null));
+    const { error: updErr } = await supabase.from('checkins').update(retained).eq('id', existing[0].id);
     return { error: updErr };
   }
   const { error: insErr } = await supabase.from('checkins').insert(payload);
@@ -260,6 +230,10 @@ export function CheckinPage() {
   const [patient, setPatient] = useState<PatientProfile | null>(null);
   const [vals, setVals] = useState<Record<VitalRangeKey, string>>(EMPTY_VALS);
   const [pain, setPain] = useState(0);
+  const [painEntered, setPainEntered] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (submitError) errorRef.current?.focus(); }, [submitError]);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -287,9 +261,12 @@ export function CheckinPage() {
   const setVal = (k: VitalRangeKey, v: string) => {
     setVals((prev) => ({ ...prev, [k]: v }));
     setSavedFeedback(null);
+    setSubmitError(null);
   };
   const updatePain = (v: number) => {
     setPain(v);
+    setPainEntered(true);
+    setSubmitError(null);
     setSavedFeedback(null);
   };
 
@@ -361,21 +338,30 @@ export function CheckinPage() {
     SYNC_ENTITIES,
   );
 
-  const doSubmit = async () => {
-    if (!patient || submitting) return;
-    // 提交入口统一做区间校验，多个字段越界只提示第一条
-    const rangeIssue = findVitalRangeIssue({
+  const submissionIssue = (): string | null => {
+    const values = {
       heart_rate: num(vals.heart_rate),
       temperature: tempVal,
       systolic: sysVal,
       diastolic: diaVal,
-      glucose: num(vals.glucose),
+      blood_glucose: num(vals.glucose),
       weight: num(vals.weight),
-    });
+      pain_score: painEntered ? pain : null,
+    };
+    return validateVitals(values, true)
+      ?? (Object.values(values).every((v) => v === null) && !note.trim() ? '请填写至少一项今天实测的数据或备注，示例提示不是测量值' : null);
+  };
+
+  const doSubmit = async () => {
+    if (!patient || submitting) return;
+    // 提交入口统一做区间校验，多个字段越界只提示第一条
+    const rangeIssue = submissionIssue();
     if (rangeIssue) {
+      setSubmitError(rangeIssue);
       toast.error(rangeIssue);
       return;
     }
+    setSubmitError(null);
     setSubmitting(true);
     // 反馈话术只基于本次真实填写值 + 本人基线，基线不足时自动退化
     const submitted: FeedbackValues = {
@@ -395,28 +381,35 @@ export function CheckinPage() {
         temperature: tempVal,
         blood_glucose: num(vals.glucose),
         weight: num(vals.weight),
-        pain_score: pain,
+        pain_score: painEntered ? pain : null,
         note: note.trim() || null,
       });
       if (error) throw error;
       // 打卡写入成功后广播：医护端工作台/360 视图与家属端立刻看到新体征
       broadcastChange(['checkins']);
-      const feedback = buildCheckinFeedback(submitted, baselines);
+      const hasVitals = Object.values(submitted).some((v) => v !== null);
+      const feedback = hasVitals ? buildCheckinFeedback(submitted, baselines) : (painEntered ? '已记录疼痛评分，本次未填写血压和心率。' : '已保存备注，本次未填写体征数据。');
       setSavedFeedback(feedback);
       // toast 留久一点，老人看得完
       toast.success(feedback, { duration: 8000 });
       setVals(EMPTY_VALS);
       setPain(0);
+      setPainEntered(false);
       setNote('');
       await loadChart(patient.id);
-    } catch {
-      toast.error('打卡失败，请稍后重试');
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : (e as { message?: string })?.message;
+      const message = `未保存，填写内容仍保留。${detail || '请检查网络后重试'}`;
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
   };
 
   const onSubmitClick = () => {
+    const issue = submissionIssue();
+    if (issue) { setSubmitError(issue); toast.error(issue); return; }
     // 危险指标先弹确认，可选择跳转症状自查或继续提交
     if (dangerVital) setConfirmOpen(true);
     else doSubmit();
@@ -448,6 +441,7 @@ export function CheckinPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* 今日建议测量项：置顶且默认展开，其余折叠在下方「更多（可选）」 */}
+            {submitError ? <p ref={errorRef} role="alert" tabIndex={-1} className="rounded-xl bg-triage-amber-bg p-3 text-sm text-triage-amber">{submitError}</p> : null}
             <section className="space-y-2">
               <div className="flex items-start gap-2">
                 <ListChecks className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -460,7 +454,7 @@ export function CheckinPage() {
                   </p>
                 </div>
               </div>
-              <FieldGrid fields={plan.suggested} vals={vals} setVal={setVal} pain={pain} setPain={updatePain} />
+              <FieldGrid fields={plan.suggested} vals={vals} setVal={setVal} pain={pain} setPain={updatePain} markPain={() => setPainEntered(true)} />
             </section>
 
             {lastCheckin ? (
@@ -490,7 +484,7 @@ export function CheckinPage() {
                   </span>
                 </button>
                 {moreOpen ? (
-                  <FieldGrid fields={plan.optional} vals={vals} setVal={setVal} pain={pain} setPain={updatePain} />
+                  <FieldGrid fields={plan.optional} vals={vals} setVal={setVal} pain={pain} setPain={updatePain} markPain={() => setPainEntered(true)} />
                 ) : null}
               </div>
             ) : null}

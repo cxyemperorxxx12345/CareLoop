@@ -1,3 +1,4 @@
+import { parseVitalNumber, validateVitals } from '../../../supabase/functions/_shared/vital-validation';
 // 症状自查与智能分诊：表单 + triage-symptom 三色结果卡 + 历史记录
 
 import { ChevronDown, Info, PhoneCall, ShieldCheck, Stethoscope, TriangleAlert } from 'lucide-react';
@@ -151,10 +152,10 @@ export function SymptomPage() {
   });
 
   // 体征即时校验：体温 >37.3 或收缩压 ≥140 黄色提示；≥39 或 ≥180 红色警示
-  const tempVal = parseFloat(temperature);
-  const sysVal = parseFloat(systolic);
-  const hasTemp = !Number.isNaN(tempVal);
-  const hasSys = !Number.isNaN(sysVal);
+  const tempVal = parseVitalNumber(temperature);
+  const sysVal = parseVitalNumber(systolic);
+  const hasTemp = tempVal !== null && Number.isFinite(tempVal);
+  const hasSys = sysVal !== null && Number.isFinite(sysVal);
   const warnVital = (hasTemp && tempVal > 37.3) || (hasSys && sysVal >= 140);
   const dangerVital = (hasTemp && tempVal >= 39) || (hasSys && sysVal >= 180);
 
@@ -178,6 +179,8 @@ export function SymptomPage() {
       toast.error('请填写主要症状');
       return;
     }
+    const vitalError = validateVitals({ temperature: tempVal, systolic: sysVal });
+    if (vitalError) { toast.error(vitalError); return; }
     setSubmitting(true);
     try {
       const triage = (await fnApi.triage({
