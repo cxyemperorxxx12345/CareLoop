@@ -1,3 +1,4 @@
+import { businessDate } from '@/lib/business-date';
 // 今日概览（患者端首页）：问候 + 今日待办 + 用药进度 + 最近打卡 + 快捷入口
 
 import { BellRing, Bot, CalendarHeart, FileUp, HeartPulse, Stethoscope } from 'lucide-react';
@@ -76,7 +77,7 @@ function greeting(): string {
 
 // 出院天数（今天与 discharge_date 的差值 + 1）；术后 = 出院 + 4（陈桂芳 10-03 手术、10-07 出院）
 function dischargeDays(dischargeDate: string): number {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDate();
   const diff = Math.round((Date.parse(today) - Date.parse(dischargeDate.slice(0, 10))) / 86400000);
   return diff + 1;
 }

@@ -1,3 +1,4 @@
+import { businessDate } from '@/lib/business-date';
 // 随访时间轴：按 due_date 升序的垂直时间线，支持乐观更新完成状态
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -111,7 +112,7 @@ export function FollowupPage() {
     );
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDate();
   const todayYear = today.slice(0, 4);
   const doneCount = items.filter((i) => i.done).length;
 

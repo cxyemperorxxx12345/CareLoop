@@ -23,7 +23,7 @@ interface ReminderRow {
   escalation_level: number;
   next_action_at: string;
   snooze_until: string | null;
-  medication_plans: { medicine_name: string } | null;
+  medication_plans: { medicine_name: string } | { medicine_name: string }[] | null;
 }
 
 type MessagePayload = {
@@ -96,8 +96,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   for (const r of rows) {
     const key =
       r.status === 'snoozed'
-        ? `${r.patient_id}|${r.slot}|snoozed`
-        : `${r.patient_id}|${r.slot}|${r.status}|${r.escalation_level}`;
+        ? `${r.patient_id}|${r.remind_date}|${r.slot}|snoozed`
+        : `${r.patient_id}|${r.remind_date}|${r.slot}|${r.status}|${r.escalation_level}`;
     const arr = groups.get(key) ?? [];
     arr.push(r);
     groups.set(key, arr);
@@ -109,7 +109,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const sorted = [...groupRows].sort((a, b) => a.id.localeCompare(b.id));
     const head = sorted[0];
     const ids = sorted.map((r) => r.id);
-    const medNames = [...new Set(sorted.map((r) => r.medication_plans?.medicine_name ?? '药品'))];
+    const medNames = [...new Set(sorted.map((r) => {
+      const plan = Array.isArray(r.medication_plans) ? r.medication_plans[0] : r.medication_plans;
+      return plan?.medicine_name ?? '药品';
+    }))];
     const medsText = medNames.join('、');
     const slotLabel = `${SLOT_NAMES[head.slot] ?? ''} ${SLOT_TIMES[head.slot] ?? ''}`;
     // 分组成员 id 进 dedup_key：组构成变化（某药离组）后，剩余药仍能收到各自的消息
@@ -118,6 +121,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     try {
       // ---- snoozed 到期：整组重新推送并重置 30 分钟升级时钟 ----
       if (head.status === 'snoozed') {
+        if (head.snooze_until && Date.parse(head.snooze_until) > now.getTime()) continue;
         const { data: upd } = await admin
           .from('reminders')
           .update({ status: 'sent', snooze_until: null, next_action_at: in30.toISOString() })
@@ -207,7 +211,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
           .eq('id', head.patient_id)
           .single();
         const pt = patient as unknown as { emergency_contact: string | null; emergency_contact_phone: string | null; name: string } | null;
-        const hasContact = Boolean(pt?.emergency_contact_phone);
+        const { data: bound } = await admin.from('care_relations').select('id, family_name')
+          .eq('patient_id', head.patient_id).eq('status', 'ACTIVE').limit(1);
+        const hasContact = Boolean(bound?.length);
 
         if (hasContact) {
           const { data: upd } = await admin
@@ -232,18 +238,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
             if (st === 'failed') result.errors += 1;
             if (st === 'inserted') result.escalated += 1;
             // 【M1】L2 从"仅发短信"升级为"可处置"：有 ACTIVE 家属绑定时生成家属端待办任务（多种药合并为一条）
-            const { data: bound } = await admin
-              .from('care_relations')
-              .select('id, family_name')
-              .eq('patient_id', head.patient_id)
-              .eq('status', 'ACTIVE')
-              .limit(1);
             if (bound && bound.length) {
               await admin.from('alerts').insert({
                 patient_id: head.patient_id,
+                reminder_ids: upd.map((r) => r.id),
                 source: 'medication',
                 level: 'yellow',
-                detail: `【待家属协助】${pt?.name ?? '患者'} ${slotLabel} 的 ${medsText} 超过 30 分钟未确认，请协助确认服药或联系患者。`,
+                detail: `【待家属协助】${pt?.name ?? '患者'} ${slotLabel} 的 ${medsText} 经过两级提醒仍未确认，请协助确认服药或联系患者。`,
                 status: 'open',
                 assignee_role: 'family',
               });
@@ -262,9 +263,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
           if (upd && upd.length) {
             await admin.from('alerts').insert({
               patient_id: head.patient_id,
+              reminder_ids: upd.map((r) => r.id),
               source: 'medication',
               level: 'yellow',
-              detail: `用药提醒多次未确认（${pt?.name ?? '患者'}，${slotLabel} ${medsText}），未登记紧急联系人自动升级至 L3，请护士站电话介入。`,
+              detail: `用药提醒多次未确认（${pt?.name ?? '患者'}，${slotLabel} ${medsText}），未绑定家属自动升级至 L3，请护士站电话介入。`,
               status: 'open',
             });
             result.alerts_created += 1;
@@ -304,9 +306,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (upd && upd.length) {
           await admin.from('alerts').insert({
             patient_id: head.patient_id,
+            reminder_ids: upd.map((r) => r.id),
             source: 'medication',
             level: 'yellow',
-            detail: `用药提醒 L3 升级（${pt?.name ?? '患者'}，${slotLabel} ${medsText}），30 分钟内未确认，请电话介入并录入处置结论。`,
+            detail: `用药提醒 L3 升级（${pt?.name ?? '患者'}，${slotLabel} ${medsText}），经过三级提醒仍未确认，请电话介入并录入处置结论。`,
             status: 'open',
           });
           result.alerts_created += 1;

@@ -26,8 +26,11 @@ import {
   isOffline,
   readSnapshot,
   replayQueue,
+  readQueue,
   saveSnapshot,
 } from '@/lib/offline-cache';
+import { businessDate } from '@/lib/business-date';
+import { medicationEventTime, queuedMedicationPayload, sendMedicationEvent, type MedicationLogPayload } from '@/lib/medication-log';
 import { computeReminderAdapt, type ReminderAdaptResult } from '@/lib/reminder-adapt';
 import { broadcastChange, type SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
@@ -58,45 +61,7 @@ function logBadgeCls(action: MedAction): string {
   return 'bg-muted text-muted-foreground';
 }
 
-// 离线入队的打卡操作载荷（联网重放时原样提交）
-interface MedLogPayload {
-  pid: string;
-  planId: string;
-  slot: number;
-  action: MedAction;
-  reason: string | null;
-}
-
-// 真实写库：幂等 upsert log，taken/snoozed 同步终止或延后该槽提醒
-async function sendMedicationLog(p: MedLogPayload): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
-  const { error } = await supabase.from('medication_logs').upsert(
-    { patient_id: p.pid, plan_id: p.planId, log_date: today, slot: p.slot, action: p.action, reason: p.reason },
-    { onConflict: 'plan_id,log_date,slot' },
-  );
-  if (error) throw error;
-  if (p.action === 'taken') {
-    await supabase
-      .from('reminders')
-      .update({ status: 'acked', updated_at: new Date().toISOString() })
-      .eq('patient_id', p.pid)
-      .eq('remind_date', today)
-      .eq('slot', p.slot)
-      .neq('status', 'acked');
-  } else if (p.action === 'snoozed') {
-    await supabase
-      .from('reminders')
-      .update({
-        status: 'snoozed',
-        snooze_until: new Date(Date.now() + 30 * 60000).toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('patient_id', p.pid)
-      .eq('remind_date', today)
-      .eq('slot', p.slot)
-      .neq('status', 'acked');
-  }
-}
+type MedLogPayload = MedicationLogPayload;
 
 // 离线快照内容：患者 id + 用药计划/记录 + 自适应提醒结论
 interface MedicationSnapshot {
@@ -249,6 +214,7 @@ export function MedicationsPage() {
         planId,
         slot,
         action,
+        ...medicationEventTime(),
         reason: logReason ?? null,
       });
       if (item) {
@@ -266,7 +232,7 @@ export function MedicationsPage() {
 
     setBusy(true);
     try {
-      await sendMedicationLog({ pid, planId, slot, action, reason: logReason ?? null });
+      await sendMedicationEvent({ pid, planId, slot, action, reason: logReason ?? null, ...medicationEventTime() });
       // 写库成功后广播失效：家属端镜像与医护端工作台立刻刷新，无需等聚焦
       broadcastChange(['medication_logs', 'reminders']);
       toast.success(action === 'taken' ? '已记录服药' : action === 'snoozed' ? '已延后 30 分钟，稍后再提醒您' : '已跳过本次服药');
@@ -282,16 +248,19 @@ export function MedicationsPage() {
   useEffect(() => {
     const onOnline = async () => {
       await replayQueue(async (item) => {
-        await sendMedicationLog(item.payload as unknown as MedLogPayload);
-      });
+        await sendMedicationEvent(queuedMedicationPayload(item));
+      }, { filter: (item) => item.kind === 'medication-log' && (item.payload as unknown as MedLogPayload).pid === patientId });
       // 离线补传成功后同样广播，让其他端补齐这批打卡数据
       broadcastChange(['medication_logs', 'reminders']);
-      setQueuedKeys([]);
+      setQueuedKeys(readQueue().filter((item) => item.kind === 'medication-log' && (item.payload as unknown as MedLogPayload).pid === patientId).map((item) => {
+        const p = item.payload as unknown as MedLogPayload;
+        return `${p.planId}-${p.slot}`;
+      }));
       void initLoad(true);
     };
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
-  }, [initLoad]);
+  }, [initLoad, patientId]);
 
   // 已有记录时先 toast 确认，再覆盖
   function requestLog(plan: PlanRow, slot: number, action: MedAction, logReason?: string) {

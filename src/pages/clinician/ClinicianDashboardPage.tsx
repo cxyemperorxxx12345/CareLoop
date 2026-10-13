@@ -1,3 +1,4 @@
+import { businessDate } from '@/lib/business-date';
 // 医护工作台概览：4 指标卡（大字号）+ 待办列表（红色优先，按严重度+时间排序）
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -74,7 +75,7 @@ function relativeTime(iso: string): string {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return businessDate();
 }
 
 export function ClinicianDashboardPage() {

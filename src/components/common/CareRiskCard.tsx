@@ -1,4 +1,4 @@
-// 机制② 展示组件：CareRisk 履约风险预测卡
+// 机制② 展示组件：CareRisk 随访关注评分卡
 // 三端复用：患者（自我觉察）/ 家属（照护对象）/ 医护（360 与列表）。纯展示，数据来自 computeCareRisk。
 
 import { Activity } from 'lucide-react';
@@ -17,7 +17,7 @@ export function CareRiskCard({ result, compact = false }: { result: CareRiskResu
       <CardHeader className={compact ? 'pb-2' : 'pb-2'}>
         <CardTitle className="flex items-center gap-2 text-base">
           <Activity className="h-4 w-4 shrink-0 text-primary" />
-          CareRisk 履约风险预测
+          CareRisk 随访关注评分
           <span className="ml-auto text-xs font-normal text-muted-foreground">
             基于本人近 {result.windowDays} 天轨迹
           </span>
@@ -26,7 +26,7 @@ export function CareRiskCard({ result, compact = false }: { result: CareRiskResu
       <CardContent className="space-y-3">
         <div className="flex items-center gap-4">
           {/* 环形评分 */}
-          <svg width="84" height="84" viewBox="0 0 84 84" className="shrink-0" role="img" aria-label={`履约风险评分 ${result.score}`}>
+          <svg width="84" height="84" viewBox="0 0 84 84" className="shrink-0" role="img" aria-label={`随访关注评分 ${result.score}`}>
             <circle cx="42" cy="42" r={R} fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
             <circle
               cx="42"
@@ -49,7 +49,7 @@ export function CareRiskCard({ result, compact = false }: { result: CareRiskResu
           </svg>
 
           <div className="min-w-0 flex-1">
-            <Badge className={meta.cls}>{meta.label}风险</Badge>
+            <Badge className={meta.cls}>{meta.label}关注度</Badge>
             <p className="mt-2 text-sm leading-relaxed text-foreground/80">{result.forecast}</p>
           </div>
         </div>

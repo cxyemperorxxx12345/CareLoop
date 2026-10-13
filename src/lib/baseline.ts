@@ -1,3 +1,4 @@
+import { businessDate } from '@/lib/business-date';
 // 个人基线（机制①）统一入口
 //
 // 优先级：daily_baseline 表（迁移 00019，SQL 侧跑批产出）→ 表缺失/无数据时用患者本人
@@ -45,11 +46,11 @@ const MIN_HALF_WIDTH_DEFAULT = 5;
 // 会拿到 ±5kg 的最小半宽，临床意义弱且演示画面上突兀）
 const LOCAL_METRICS = ['systolic', 'diastolic', 'heart_rate', 'temperature', 'blood_glucose'];
 
-// 日期键一律取 UTC 日（YYYY-MM-DD）：
-//   · 与 SQL 侧 created_at::date 同口径（库时区为 UTC），保证现算结果与跑批结果一致
-//   · 与前端既有口径一致（趋势图 X 轴就是 created_at.slice(5, 10)）
+// 日期键一律取北京时间自然日（YYYY-MM-DD）：
+//   · 与迁移 00021 的北京时间口径一致，保证现算结果与跑批结果一致
+//   · 趋势图也使用北京时间日期标签
 function dayKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return businessDate(d);
 }
 
 function parseDayKey(iso: string): string | null {
@@ -79,9 +80,14 @@ export function computeLocalBaselines(rows: BaselineCheckin[]): BaselineMetric[]
   const todayKey = dayKey(new Date());
   const startKey = dayKey(new Date(Date.now() - WINDOW_DAYS * 86400000));
 
-  // 窗口内 日 → 值，按天聚合（同一天多条记录全部纳入，与 SQL 的 count(*) 口径一致）
+  // 窗口内 日 → 值，按天聚合（同一天取最新快照，与 SQL 的 DISTINCT ON 口径一致）
   const byMetric = new Map<string, Map<string, number[]>>();
+  const latest = new Map<string, BaselineCheckin>();
   for (const row of rows) {
+    const key = parseDayKey(row.created_at);
+    if (key && (!latest.has(key) || Date.parse(row.created_at) > Date.parse(latest.get(key)!.created_at))) latest.set(key, row);
+  }
+  for (const row of latest.values()) {
     const k = parseDayKey(row.created_at);
     if (!k || k < startKey || k >= todayKey) continue;
     for (const metric of LOCAL_METRICS) {
@@ -131,7 +137,7 @@ export async function loadBaselines(
   const fromTable = await getBaselines(patientId).catch(() => []);
   if (fromTable.length > 0) {
     // 表口径固定 7 天滚动窗口（daily_baseline.window_days 恒为 7）
-    return fromTable.map((b) => ({ ...b, sampleDays: WINDOW_DAYS, source: 'table' as const }));
+    return fromTable.map((b) => ({ ...b, sampleDays: b.sampleDays, source: 'table' as const }));
   }
   const rows = checkins ?? ((await patientApi.checkinHistory(patientId, 14)) as BaselineCheckin[]);
   const res = computeLocalBaselines(rows ?? []);

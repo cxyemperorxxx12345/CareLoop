@@ -292,7 +292,7 @@ export interface ReplayResult {
  */
 export async function replayQueue(
   sender: (item: QueuedItem) => Promise<void>,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; filter?: (item: QueuedItem) => boolean },
 ): Promise<ReplayResult> {
   const items = readQueue();
   if (isDryRun() && !opts?.force) {
@@ -302,6 +302,7 @@ export async function replayQueue(
   let sent = 0;
   let failed = 0;
   for (const item of items) {
+    if (opts?.filter && !opts.filter(item)) continue;
     try {
       await sender(item);
       removeQueued(item.id);

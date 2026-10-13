@@ -1,3 +1,4 @@
+import { businessDate } from '@/lib/business-date';
 // 家属端首页：照护对象今日状态卡（只读）+ 待我处理升级任务（红色优先）+ 近期随访
 
 import { CalendarHeart, ChevronRight, ClipboardCheck, HeartPulse, Pill, ShieldAlert } from 'lucide-react';
@@ -76,7 +77,7 @@ export function FamilyDashboardPage() {
         }
         setPatient(fp.patient);
         setRelation({ family_name: fp.family_name, relation: fp.relation });
-        const today = new Date().toISOString().slice(0, 10);
+        const today = businessDate();
         const [pl, lg, fu, al] = await Promise.all([
           supabase.from('medication_plans').select('id, medicine_name, slots').eq('patient_id', fp.patient.id),
           supabase.from('medication_logs').select('plan_id, slot, action').eq('patient_id', fp.patient.id).eq('log_date', today),

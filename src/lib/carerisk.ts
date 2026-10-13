@@ -1,11 +1,4 @@
-// 机制② CareRisk 履约风险预测（展示层 / 预测引擎）
-//
-// 设计理念：每个患者唯一的对照是他自己。这里不再用"命中某条规则就报警"的判定式，
-// 而是用患者本人近 N 天的真实轨迹，算出一个连续的「未来脱落概率」评分（0–100）。
-// 评分包含趋势项——不仅看"现在漏没漏"，更看"最近是否在变糟"，这是预测与规则的本质区别。
-//
-// 纯函数，不依赖 Supabase，便于单测与三端复用。底层数据来自现有表：
-//   medication_plans / medication_logs（用药）· checkins（打卡）· symptom_checks（症状预警）
+// CareRisk 随访关注评分：按近期记录加权，辅助安排随访，不表示未来概率。
 
 export type TriageLevel = 'green' | 'yellow' | 'red';
 export type CareRiskLevel = 'low' | 'medium' | 'high';
@@ -31,7 +24,7 @@ export interface CareRiskResult {
   level: CareRiskLevel;
   dimensions: CareRiskDimension[];
   drivers: string[]; // 可读的驱动因子
-  forecast: string; // 未来 7 天预测句
+  forecast: string; // 根据近期记录给出的随访建议
   windowDays: number;
 }
 
@@ -150,10 +143,10 @@ export function computeCareRisk(raw: CareRiskRaw, windowDays = 14): CareRiskResu
 
   const forecast =
     level === 'high'
-      ? '未来 7 天脱落风险偏高，建议主动电话随访并缩短提醒间隔'
+      ? '近期记录需要重点关注，建议主动电话随访'
       : level === 'medium'
-        ? '未来 7 天存在一定脱落风险，建议加强家属协同与提醒'
-        : '未来 7 天履约预计平稳，维持现有节奏即可';
+        ? '近期有漏记或异常记录，建议与患者及家属确认情况'
+        : '近期记录较规律，可按既定计划随访';
 
   return { score, level, dimensions, drivers, forecast, windowDays: w };
 }

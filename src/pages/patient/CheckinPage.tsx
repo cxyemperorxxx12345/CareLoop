@@ -1,4 +1,5 @@
-// 健康打卡：今日建议项置顶 + 其余折叠 + 沿用上次 + 提交后人话反馈 + 近14天趋势图
+import { businessDate, businessDayStart, shiftDate } from '@/lib/business-date';
+// 健康打卡：今日建议项置顶 + 其余折叠 + 上次记录参考 + 提交后人话反馈 + 近14天趋势图
 
 import { Activity, CalendarCheck2, CheckCircle2, ChevronDown, ChevronUp, History, ListChecks, TriangleAlert } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useState } from 'react';
@@ -233,15 +234,15 @@ async function submitDailyCheckin(args: {
   if (code !== 'PGRST202' && code !== '404') return { error: rpc.error };
 
   // 2) 客户端日粒度兜底（后端未部署 upsert_daily_checkin 时）
-  const now = new Date();
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  const day = businessDate();
+  const dayStart = businessDayStart(day);
+  const dayEnd = businessDayStart(shiftDate(day, 1));
   const { data: existing, error: selErr } = await supabase
     .from('checkins')
     .select('id')
     .eq('patient_id', args.patientId)
-    .gte('created_at', dayStart.toISOString())
-    .lt('created_at', dayEnd.toISOString())
+    .gte('created_at', dayStart)
+    .lt('created_at', dayEnd)
     .order('created_at', { ascending: false })
     .limit(1);
   if (selErr) return { error: selErr };
@@ -272,9 +273,8 @@ export function CheckinPage() {
   // 今日建议项：按诊断/术式/既往史/医嘱推导，未取到档案前按「全部建议」渲染，避免闪成空表单
   const [plan, setPlan] = useState(() => buildCheckinPlan([]));
   const [moreOpen, setMoreOpen] = useState(false);
-  // 今天之前最近一次打卡：用于「沿用」；昨天没记录时退回更早的一次并标注真实日期
+  // 今天之前最近一次打卡：仅用于参考；昨天没记录时退回更早的一次并标注真实日期
   const [lastCheckin, setLastCheckin] = useState<CheckinSnapshot | null>(null);
-  const [carried, setCarried] = useState<{ from: string; names: string[] } | null>(null);
   const [savedFeedback, setSavedFeedback] = useState<string | null>(null);
 
   // 体征即时校验：体温 >37.3 或血压 ≥140/90 黄色提示；≥39 或 ≥180 红色危险
@@ -303,7 +303,7 @@ export function CheckinPage() {
         rows = (await patientApi.checkinHistory(pid, 14)) as CheckinRow[];
         const byDay = new Map<string, ChartPoint>();
         for (const r of rows) {
-          const date = r.created_at.slice(5, 10);
+          const date = businessDate(r.created_at).slice(5, 10);
           byDay.set(date, { date, systolic: r.systolic, diastolic: r.diastolic, heart_rate: r.heart_rate });
         }
         setChart(Array.from(byDay.values()));
@@ -361,33 +361,6 @@ export function CheckinPage() {
     SYNC_ENTITIES,
   );
 
-  /** 沿用上一次记录的数值：只填 UI，并明确提示这是沿用、不是今天新测的 */
-  const applyLastCheckin = () => {
-    if (!lastCheckin) return;
-    const pair: { key: VitalRangeKey; value: number | null; label: string }[] = [
-      { key: 'systolic', value: lastCheckin.systolic, label: FIELD_LABEL.blood_pressure },
-      { key: 'diastolic', value: lastCheckin.diastolic, label: FIELD_LABEL.blood_pressure },
-      { key: 'heart_rate', value: lastCheckin.heart_rate, label: FIELD_LABEL.heart_rate },
-      { key: 'temperature', value: lastCheckin.temperature, label: FIELD_LABEL.temperature },
-      { key: 'glucose', value: lastCheckin.blood_glucose, label: FIELD_LABEL.glucose },
-      { key: 'weight', value: lastCheckin.weight, label: FIELD_LABEL.weight },
-    ];
-    const next = { ...EMPTY_VALS };
-    const names: string[] = [];
-    for (const item of pair) {
-      if (item.value === null) continue;
-      next[item.key] = String(item.value);
-      if (!names.includes(item.label)) names.push(item.label);
-    }
-    setVals(next);
-    if (lastCheckin.pain_score !== null) {
-      setPain(lastCheckin.pain_score);
-      names.push(FIELD_LABEL.pain);
-    }
-    setCarried({ from: lastCheckin.isYesterday ? '昨天' : lastCheckin.dayLabel, names });
-    setSavedFeedback(null);
-  };
-
   const doSubmit = async () => {
     if (!patient || submitting) return;
     // 提交入口统一做区间校验，多个字段越界只提示第一条
@@ -435,7 +408,6 @@ export function CheckinPage() {
       setVals(EMPTY_VALS);
       setPain(0);
       setNote('');
-      setCarried(null);
       await loadChart(patient.id);
     } catch {
       toast.error('打卡失败，请稍后重试');
@@ -491,22 +463,14 @@ export function CheckinPage() {
               <FieldGrid fields={plan.suggested} vals={vals} setVal={setVal} pain={pain} setPain={updatePain} />
             </section>
 
-            {/* 沿用上一次记录：昨天没记录时用更早的一次，并把真实日期写在按钮上 */}
             {lastCheckin ? (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={applyLastCheckin}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-4 text-[15px] font-medium text-primary"
-                >
-                  <History className="h-4 w-4 shrink-0" />
-                  {lastCheckin.isYesterday ? '沿用昨日数值' : `沿用上次（${lastCheckin.dayLabel}）的数值`}
-                </button>
-                {carried ? (
-                  <p className="rounded-xl bg-triage-amber-bg px-3 py-2 text-xs leading-relaxed text-triage-amber">
-                    已填入 {carried.from} 的{carried.names.join('、')}——这是沿用，不是今天新测的。今天重新测过的项目，请改成今天的数字。
-                  </p>
-                ) : null}
+              <div className="rounded-xl bg-muted/50 p-3 text-sm leading-relaxed">
+                <p className="flex items-center gap-2 font-medium"><History className="h-4 w-4" />上次记录（{lastCheckin.dayLabel}）</p>
+                <p className="mt-1 text-muted-foreground">
+                  血压 {lastCheckin.systolic ?? '未测'}/{lastCheckin.diastolic ?? '未测'} ·
+                  心率 {lastCheckin.heart_rate ?? '未测'} · 体温 {lastCheckin.temperature ?? '未测'}
+                </p>
+                <p className="mt-1 text-muted-foreground">这些是上次的数值。请填写今天新测的数据，没测的项目留空。</p>
               </div>
             ) : null}
 

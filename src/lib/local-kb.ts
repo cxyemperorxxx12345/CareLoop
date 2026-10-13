@@ -1,3 +1,4 @@
+import { extractKnowledgeKeywords } from '../../supabase/functions/_shared/knowledge-keywords';
 // 本地知识库兜底：当 AI 助手（assistant-chat / MiniMax）连不上或没有回答时，
 // 降级从 knowledge_docs 表做关键词检索，明确标注「非 AI 回答」。
 // knowledge_docs 的 RLS 允许所有登录用户 SELECT（患者可读），因此纯前端即可，无需迁移。
@@ -15,30 +16,6 @@ export type LocalKbHit = {
 // 中文整句通常没有空格：若把整句当一个关键词去子串匹配永远命中不了，
 // 因此先取标点/空格分隔出的词，再对中文长串生成「重叠」2~3 字窗口
 // （bigram 最易命中知识库，如「术后伤口怎么护理」→ 术后/伤口/护理）。
-function extractKeywords(question: string): string[] {
-  const raw = question.replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, '');
-  const seen = new Set<string>();
-  const out: string[] = [];
-  const push = (k: string) => {
-    if (k && !seen.has(k)) {
-      seen.add(k);
-      out.push(k);
-    }
-  };
-  // 1) 空格/标点分隔出的「词」直接用（如「血压」「伤口护理」）
-  for (const w of question.replace(/[，。！？、,.!?？:：;；\s]/g, ' ').split(/\s+/)) {
-    const t = w.trim();
-    if (t.length >= 2) push(t);
-  }
-  // 2) 中文长串：重叠 2~3 字窗口（2 字优先，最易命中）
-  if (raw.length >= 2) {
-    for (let n = 2; n <= 3; n++) {
-      for (let i = 0; i + n <= raw.length; i++) push(raw.slice(i, i + n));
-    }
-  }
-  return out.slice(0, 4);
-}
-
 // 不区分大小写的子串出现次数
 function countOccurrences(haystack: string, needle: string): number {
   if (!needle) return 0;
@@ -58,7 +35,7 @@ function countOccurrences(haystack: string, needle: string): number {
 // 本地知识库检索：纯前端、只读、失败返回 []（表缺失或网络异常均不阻断主流程）。
 export async function searchLocalKnowledge(question: string): Promise<LocalKbHit[]> {
   try {
-    const keywords = extractKeywords(question);
+    const keywords = extractKnowledgeKeywords(question);
     if (keywords.length === 0) return [];
 
     const { data, error } = await supabase

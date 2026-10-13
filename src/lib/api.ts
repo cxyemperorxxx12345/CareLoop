@@ -1,3 +1,4 @@
+import { businessDate, businessDayStart, shiftDate } from '@/lib/business-date';
 // CareLoop 前端数据访问层：所有 Supabase 查询与 Edge Function 调用统一入口
 import { supabase } from '@/db/supabase';
 import type { CareRiskRaw } from '@/lib/carerisk';
@@ -93,7 +94,7 @@ export async function getFamilyPatient(): Promise<FamilyPatient | null> {
 
 export const patientApi = {
   async dashboard(patientId: string) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessDate();
     const [plans, logs, followups, checkins, reminders] = await Promise.all([
       supabase.from('medication_plans').select('*').eq('patient_id', patientId).eq('active', true),
       supabase.from('medication_logs').select('*').eq('patient_id', patientId).eq('log_date', today),
@@ -120,7 +121,7 @@ export const patientApi = {
   },
 
   async medicationDetail(patientId: string) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessDate();
     const [plans, logs, reminders] = await Promise.all([
       supabase.from('medication_plans').select('*').eq('patient_id', patientId).eq('active', true),
       supabase.from('medication_logs').select('*').eq('patient_id', patientId).eq('log_date', today),
@@ -139,7 +140,7 @@ export const patientApi = {
   },
 
   async checkinHistory(patientId: string, days = 14) {
-    const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+    const since = businessDayStart(shiftDate(businessDate(), -(days - 1)));
     const { data } = await supabase
       .from('checkins')
       .select('*')
@@ -197,20 +198,6 @@ export const patientApi = {
 
 // ===== 医护端 API =====
 
-// 预警处理回执正文：写给老人看的人话，不出现内部术语 / 字段名 / 编号
-function buildAlertReceiptContent(action: string, resolutionNote: string): string {
-  const actionText = action?.trim() || '跟进查看';
-  const noteText = resolutionNote?.trim() || '医护已经跟进处理';
-  return [
-    '您上报的情况，医生和护士已经看到了，请您放心，不用着急。',
-    '',
-    `医护为您做的处理：${actionText}`,
-    `现在的情况：${noteText}`,
-    '',
-    '您就照原来的安排按时吃药、好好休息。要是哪里还不舒服，随时在手机上再跟我们说一声，我们会一直关注着您。',
-  ].join('\n');
-}
-
 export const clinicianApi = {
   async patients(filters?: { name?: string; diagnosis?: string; risk?: string; department?: string }) {
     // 软隐藏：过滤掉演示期残留的测试档案（is_hidden），不删除任何账号
@@ -226,7 +213,7 @@ export const clinicianApi = {
   async patientDetail(patientId: string) {
     const since30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
     const since7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessDate();
     const [patient, plans, logs7, followups, checkins30, symptoms, alerts, documents, messages] = await Promise.all([
       supabase.from('patients').select('*').eq('id', patientId).maybeSingle(),
       supabase.from('medication_plans').select('*').eq('patient_id', patientId).eq('active', true),
@@ -269,43 +256,20 @@ export const clinicianApi = {
   },
 
   // 处理预警，并给患者回一条回执消息，补上「上报 → 医护处理 → 患者知道」的最后一跳。
-  // 返回 notified=false 表示回执未送达（预警本身已处理成功），调用方需提示但不视为失败。
+  // 处置与回执在同一事务里完成；失败抛错，保留原状态供重试。
   async resolveAlert(
     id: string,
     action: string,
     resolutionNote: string,
-    handledBy: string,
+    _handledBy: string,
   ): Promise<{ notified: boolean; notifyError: string | null }> {
-    // 只对「非 resolved → resolved」的跃迁生效：重复处理不重复发回执
-    const { data: updated, error } = await supabase
-      .from('alerts')
-      .update({ status: 'resolved', action, resolution_note: resolutionNote, handled_by: handledBy, handled_at: new Date().toISOString() })
-      .eq('id', id)
-      .neq('status', 'resolved')
-      .select('id, patient_id');
+    const { data, error } = await supabase.rpc('resolve_alert_with_receipt', {
+      p_alert_id: id,
+      p_action: action,
+      p_resolution_note: resolutionNote,
+    });
     if (error) throw new Error(error.message);
-
-    const patientId = (Array.isArray(updated) ? updated[0] : null)?.patient_id as string | undefined;
-    // 已是已处理状态（未发生状态跃迁）或取不到患者：不重复通知
-    if (!patientId) return { notified: false, notifyError: null };
-
-    try {
-      const { error: msgError } = await supabase.from('messages').insert({
-        patient_id: patientId,
-        type: 'clinician_reply',
-        title: '医护已查看您的上报',
-        content: buildAlertReceiptContent(action, resolutionNote),
-        link_path: '/patient/messages',
-        read: false,
-        dedup_key: `alert-receipt:${id}`,
-      });
-      // 23505 = 唯一索引冲突，说明回执已存在，属幂等命中而非失败
-      if (msgError && msgError.code !== '23505') throw new Error(msgError.message);
-      return { notified: true, notifyError: null };
-    } catch (e) {
-      // 回执写入失败不能让「处理预警」整体失败
-      return { notified: false, notifyError: (e as Error).message };
-    }
+    return data as { notified: boolean; notifyError: string | null };
   },
 
   async reports(patientId?: string) {
@@ -373,6 +337,7 @@ export const fnApi = {
 
 // 个体基线指标（机制①）：患者本人 7 天滚动中位数 + 偏离带上下界
 export interface BaselineMetric {
+  sampleDays: number;
   metric: string;
   median: number;
   bandLow: number;
@@ -383,14 +348,16 @@ export interface BaselineMetric {
 export async function getBaselines(patientId: string): Promise<BaselineMetric[]> {
   const { data, error } = await supabase
     .from('daily_baseline')
-    .select('metric, median, band_low, band_high')
-    .eq('patient_id', patientId);
+    .select('metric, median, band_low, band_high, sample_count, computed_at')
+    .eq('patient_id', patientId)
+    .gte('computed_at', businessDayStart(businessDate()));
   if (error) return [];
   return (data ?? []).map((b) => ({
     metric: b.metric,
     median: Number(b.median),
     bandLow: Number(b.band_low),
     bandHigh: Number(b.band_high),
+    sampleDays: Number(b.sample_count),
   }));
 }
 
@@ -401,7 +368,7 @@ export async function getBaselines(patientId: string): Promise<BaselineMetric[]>
 export async function getCareRiskInputs(patientId: string, windowDays = 14): Promise<CareRiskRaw> {
   const sinceMs = Date.now() - windowDays * 86400000;
   const sinceIso = new Date(sinceMs).toISOString();
-  const sinceDate = sinceIso.slice(0, 10);
+  const sinceDate = businessDate(sinceMs);
   const [plans, logs, checkins, symptoms, patient] = await Promise.all([
     supabase.from('medication_plans').select('id, slots').eq('patient_id', patientId).eq('active', true),
     supabase.from('medication_logs').select('plan_id, slot, action, log_date').eq('patient_id', patientId).gte('log_date', sinceDate),

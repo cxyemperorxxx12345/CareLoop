@@ -1,3 +1,4 @@
+import { businessDate } from '@/lib/business-date';
 // 打卡页「今天该测什么」的决策与话术：纯规则，不上模型、不做医学推断。
 //
 // 背景：患者端原先把 7 个体征输入框平铺在一屏。字段本来就允许留空（只在填了值时做区间
@@ -74,7 +75,7 @@ export function buildCheckinPlan(texts: (string | null | undefined)[]): CheckinP
   };
 }
 
-// ===== 沿用上一次记录 =====
+// ===== 上一次记录参考 =====
 
 /** 打卡行（checkins 表字段子集，PostgREST 返回 numeric 为 number） */
 export interface RawCheckin {
@@ -91,7 +92,7 @@ export interface RawCheckin {
 export interface CheckinSnapshot {
   /** 展示用日期，如「10月10日」 */
   dayLabel: string;
-  /** 是否就是昨天——决定按钮写「沿用昨日」还是「沿用上次（某日）」 */
+  /** 是否是北京时间的昨天 */
   isYesterday: boolean;
   systolic: number | null;
   diastolic: number | null;
@@ -102,10 +103,9 @@ export interface CheckinSnapshot {
   pain_score: number | null;
 }
 
-// 一律按本机日（患者感知的"今天/昨天"）取日键，不用 UTC——老人不会按 UTC 过日子
+// 按北京时间自然日，与后台提醒及打卡的日界一致。
 function localDayKey(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return businessDate(d);
 }
 
 function nn(v: number | null | undefined): number | null {
@@ -113,8 +113,8 @@ function nn(v: number | null | undefined): number | null {
 }
 
 /**
- * 取今天之前最近的一次打卡记录（用于「沿用」）。
- * 优先昨天；昨天没记录时退回最近一次，并把真实日期标注在按钮上——
+ * 取今天之前最近的一次打卡记录（仅用于历史参考）。
+ * 优先昨天；昨天没记录时退回最近一次，并显示真实日期——
  * 绝不把几天的旧记录说成"昨天的"。
  */
 export function pickLastCheckin(rows: RawCheckin[], now = new Date()): CheckinSnapshot | null {
@@ -125,7 +125,7 @@ export function pickLastCheckin(rows: RawCheckin[], now = new Date()): CheckinSn
   const lastDate = new Date(last.created_at);
   const yesterdayKey = localDayKey(new Date(now.getTime() - 24 * 3600 * 1000));
   return {
-    dayLabel: `${lastDate.getMonth() + 1}月${lastDate.getDate()}日`,
+    dayLabel: `${Number(businessDate(lastDate).slice(5, 7))}月${Number(businessDate(lastDate).slice(8, 10))}日`,
     isYesterday: localDayKey(lastDate) === yesterdayKey,
     systolic: nn(last.systolic),
     diastolic: nn(last.diastolic),

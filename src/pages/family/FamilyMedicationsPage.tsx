@@ -23,8 +23,11 @@ import {
   isOffline,
   readSnapshot,
   replayQueue,
+  readQueue,
   saveSnapshot,
 } from '@/lib/offline-cache';
+import { businessDate } from '@/lib/business-date';
+import { medicationEventTime, queuedMedicationPayload, sendMedicationEvent, type MedicationLogPayload } from '@/lib/medication-log';
 import { computeReminderAdapt, type ReminderAdaptResult } from '@/lib/reminder-adapt';
 import { broadcastChange, type SyncEntity } from '@/lib/sync-bus';
 import { cn } from '@/lib/utils';
@@ -64,65 +67,7 @@ function logBadgeCls(action: MedAction): string {
   return 'bg-muted text-muted-foreground';
 }
 
-// 离线入队的代打卡载荷（联网重放时原样提交）
-interface FamilyLogPayload {
-  pid: string;
-  planId: string;
-  slot: number;
-  action: MedAction;
-  reason: string | null;
-  familyName: string;
-}
-
-// 真实写库：家属代打卡，operator_type=family + 来源姓名；taken 同步终止提醒升级链 + 闭合家属任务
-async function sendFamilyMedicationLog(p: FamilyLogPayload): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
-  const { error } = await supabase.from('medication_logs').upsert(
-    {
-      patient_id: p.pid,
-      plan_id: p.planId,
-      log_date: today,
-      slot: p.slot,
-      action: p.action,
-      reason: p.reason,
-      operator_type: 'family',
-      operator_name: p.familyName,
-    },
-    { onConflict: 'plan_id,log_date,slot' },
-  );
-  if (error) throw error;
-  if (p.action === 'taken') {
-    await supabase
-      .from('reminders')
-      .update({ status: 'acked', updated_at: new Date().toISOString() })
-      .eq('patient_id', p.pid)
-      .eq('remind_date', today)
-      .eq('slot', p.slot)
-      .neq('status', 'acked');
-    // 漏服升级任务因代打卡而闭合：dosed 响应，链路终止
-    const { data: openTasks } = await supabase
-      .from('alerts')
-      .select('id')
-      .eq('patient_id', p.pid)
-      .eq('assignee_role', 'family')
-      .eq('status', 'open');
-    for (const t of openTasks ?? []) {
-      await supabase.rpc('family_respond_alert', { p_alert_id: t.id, p_action: 'dosed', p_family_name: p.familyName });
-    }
-  } else if (p.action === 'snoozed') {
-    await supabase
-      .from('reminders')
-      .update({
-        status: 'snoozed',
-        snooze_until: new Date(Date.now() + 30 * 60000).toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('patient_id', p.pid)
-      .eq('remind_date', today)
-      .eq('slot', p.slot)
-      .neq('status', 'acked');
-  }
-}
+type FamilyLogPayload = MedicationLogPayload;
 
 // 离线快照内容：照护对象信息 + 用药计划/记录 + 自适应提醒结论
 interface FamilyMedicationSnapshot {
@@ -167,7 +112,7 @@ export function FamilyMedicationsPage() {
   familyNameRef.current = familyName;
 
   const refresh = useCallback(async (patientId: string) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessDate();
     const [pl, lg] = await Promise.all([
       supabase.from('medication_plans').select('id, medicine_name, spec, dosage, frequency, slots, note').eq('patient_id', patientId),
       supabase.from('medication_logs').select('plan_id, slot, action, reason, operator_type, operator_name').eq('patient_id', patientId).eq('log_date', today),
@@ -284,16 +229,19 @@ export function FamilyMedicationsPage() {
   useEffect(() => {
     const onOnline = async () => {
       await replayQueue(async (item) => {
-        await sendFamilyMedicationLog(item.payload as unknown as FamilyLogPayload);
-      });
+        await sendMedicationEvent(queuedMedicationPayload(item));
+      }, { filter: (item) => item.kind === 'family-medication-log' && (item.payload as unknown as FamilyLogPayload).pid === pid });
       // 离线补传成功后同样广播，让其他端补齐这批代打卡数据
       broadcastChange(['medication_logs', 'reminders', 'alerts', 'messages']);
-      setQueuedKeys([]);
+      setQueuedKeys(readQueue().filter((item) => item.kind === 'family-medication-log' && (item.payload as unknown as FamilyLogPayload).pid === pid).map((item) => {
+        const p = item.payload as unknown as FamilyLogPayload;
+        return `${p.planId}-${p.slot}`;
+      }));
       void initLoad();
     };
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
-  }, [initLoad]);
+  }, [initLoad, pid]);
 
   // 家属代打卡：联网时直接写库；断网时只入队并本地标记「待补传」，恢复网络后自动重放
   async function performLog(planId: string, slot: number, action: MedAction, logReason?: string) {
@@ -306,6 +254,7 @@ export function FamilyMedicationsPage() {
         planId,
         slot,
         action,
+        ...medicationEventTime(),
         reason: attributedReason(logReason, familyName),
         familyName,
       });
@@ -324,11 +273,12 @@ export function FamilyMedicationsPage() {
 
     setBusy(true);
     try {
-      await sendFamilyMedicationLog({
+      await sendMedicationEvent({
         pid,
         planId,
         slot,
         action,
+        ...medicationEventTime(),
         reason: attributedReason(logReason, familyName),
         familyName,
       });
