@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>愈见 CareLoop · 应用方案</title>
+<style>
+  /* ===== 印刷排版：A4，等宽页边距，宋黑体系 ===== */
+  @page { size: A4; margin: 16mm 16mm 18mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    color: #0F172A; font-size: 10.5pt; line-height: 1.65; background: #fff;
+  }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== 设计 token（源自 docs/DESIGN.md）===== */
+  :root {
+    --primary: #0E7C86; --primary-deep: #0A5E66; --accent: #0284C7;
+    --bg: #F6F8FA; --muted: #475569; --border: #E2E8F0;
+    --green: #16A34A; --green-bg: #DCFCE7;
+    --amber: #D97706; --amber-bg: #FEF3C7;
+    --red: #DC2626; --red-bg: #FEE2E2;
+    --blue-bg: #E0F2FE;
+  }
+
+  /* ===== 封面 ===== */
+  .cover { display: flex; flex-direction: column; justify-content: center; height: 257mm; }
+  .cover .comp { color: var(--muted); font-size: 11pt; letter-spacing: 2px; }
+  .cover h1 { font-size: 34pt; font-weight: 900; color: var(--primary-deep); margin: 14px 0 6px; letter-spacing: 1px; }
+  .cover .sub { font-size: 15pt; color: var(--primary); font-weight: 600; margin-bottom: 28px; }
+  .cover .slogan {
+    font-size: 12.5pt; color: var(--muted); border-left: 4px solid var(--primary);
+    padding: 10px 16px; background: var(--bg); line-height: 1.9; margin-bottom: 40px;
+  }
+  .cover .meta { font-size: 11pt; color: #0F172A; line-height: 2.1; }
+  .cover .meta b { color: var(--primary-deep); }
+  .cover .todo { color: var(--red); font-size: 9.5pt; }
+  .cover .foot { position: absolute; bottom: 20mm; left: 16mm; right: 16mm; color: #94A3B8; font-size: 9pt; border-top: 1px solid var(--border); padding-top: 8px; }
+
+  /* ===== 目录 ===== */
+  .toc h2, .sec h2 {
+    font-size: 17pt; font-weight: 800; color: var(--primary-deep);
+    border-bottom: 2.5px solid var(--primary); padding-bottom: 8px; margin: 4px 0 18px;
+  }
+  .toc ol { list-style: none; margin-top: 8px; }
+  .toc li { font-size: 12pt; padding: 9px 4px; border-bottom: 1px dashed var(--border); color: #0F172A; }
+  .toc li b { color: var(--primary); margin-right: 12px; font-family: Georgia, serif; }
+  .toc li span { color: var(--muted); font-size: 10pt; margin-left: 10px; }
+
+  /* ===== 章节通用 ===== */
+  .sec h3 { font-size: 12.5pt; font-weight: 700; color: var(--primary-deep); margin: 16px 0 8px; }
+  .sec h3::before { content: "▍"; color: var(--primary); margin-right: 6px; }
+  .sec p { margin: 6px 0; text-align: justify; }
+  .sec ul, .sec ol { margin: 6px 0 6px 20px; }
+  .sec li { margin: 3.5px 0; }
+  .lead { font-size: 11.5pt; color: var(--primary-deep); font-weight: 600; }
+  .muted { color: var(--muted); font-size: 9.5pt; }
+  strong { color: var(--primary-deep); }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.8pt; }
+  th { background: #E6F4F5; color: var(--primary-deep); font-weight: 700; text-align: left; }
+  th, td { border: 1px solid var(--border); padding: 6px 9px; vertical-align: top; }
+  tr:nth-child(even) td { background: #FAFBFC; }
+
+  .card { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 8px 0; background: #fff; }
+  .card .t { font-weight: 700; color: var(--primary-deep); font-size: 10.8pt; margin-bottom: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  .badge { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 8.8pt; font-weight: 600; }
+  .b-red { background: var(--red-bg); color: var(--red); }
+  .b-amber { background: var(--amber-bg); color: var(--amber); }
+  .b-green { background: var(--green-bg); color: var(--green); }
+  .b-blue { background: var(--blue-bg); color: var(--accent); }
+
+  .flow { display: flex; align-items: stretch; gap: 0; margin: 12px 0; }
+  .flow .step { flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 9px 10px; background: var(--bg); position: relative; }
+  .flow .step + .step { margin-left: 26px; }
+  .flow .step + .step::before {
+    content: "→"; position: absolute; left: -22px; top: 50%; transform: translateY(-50%);
+    font-size: 14pt; color: var(--primary); font-weight: 900;
+  }
+  .flow .step .n { font-size: 8.5pt; color: var(--muted); font-weight: 600; }
+  .flow .step .t { font-weight: 800; color: var(--primary-deep); font-size: 10.5pt; margin: 2px 0; }
+  .flow .step .d { font-size: 9pt; color: var(--muted); line-height: 1.5; }
+
+  .kv { display: grid; grid-template-columns: 130px 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 8px 0; font-size: 9.8pt; }
+  .kv div { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  .kv div:nth-last-child(-n+2) { border-bottom: none; }
+  .kv .k { background: #E6F4F5; color: var(--primary-deep); font-weight: 700; }
+
+  .num { font-family: Georgia, serif; font-weight: 700; color: var(--primary); }
+  .callout { background: var(--bg); border-left: 3.5px solid var(--primary); padding: 8px 14px; margin: 8px 0; font-size: 10pt; border-radius: 0 8px 8px 0; }
+  .callout.red { border-color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- ============ P1 封面 ============ -->
+<div class="page cover">
+  <div class="comp">2026 年 iCAN 大学生创新创业大赛 · AI 无代码智能体挑战赛（秒哒无代码应用创新赛题 · 医疗健康场景）</div>
+  <h1>愈见 CareLoop</h1>
+  <div class="sub">出院患者全周期照护助手 —— 患者 · 家属 · 医护三方协同的出院过渡期处置闭环</div>
+  <div class="slogan">
+    出院 ≠ 痊愈。愈见 CareLoop 把出院后最危险的 2–8 周，从「患者自己扛」变成「患者—家属—护士」三级协同的闭环：<br>
+    升级链真实可追 · 分诊规则公开可查 · 预警按患者合并 · 每个患者唯一的对照是他自己。
+  </div>
+  <div class="meta">
+    <div><b>参赛团队：</b><span class="todo">【提交前填写：团队名称】</span></div>
+    <div><b>团队成员：</b><span class="todo">【提交前填写：姓名 / 院校 / 专业】</span></div>
+    <div><b>指导教师：</b><span class="todo">【提交前填写，不超过 2 人】</span></div>
+    <div><b>开发平台：</b>百度智能云 · 秒哒（无代码 Web 应用开发平台）</div>
+    <div><b>作品链接：</b><span class="todo">【发布到应用广场后填写正式链接】</span></div>
+  </div>
+  <div class="foot">本方案内容与作品功能一一对应，所有数据流均为真实数据库读写（非前端模拟）；演示数据均为虚构脱敏，产品内所有医疗建议均标注「不构成诊断」。</div>
+</div>
+
+<!-- ============ P2 目录 ============ -->
+<div class="page toc">
+  <h2>目 录</h2>
+  <ol>
+    <li><b>01</b>痛点与场景洞察<span>—— 为什么是「出院后 2–8 周」</span></li>
+    <li><b>02</b>目标用户与核心需求<span>—— 三类角色 · 一张需求矩阵</span></li>
+    <li><b>03</b>产品总览<span>—— 三端一闭环 · 差异化主张</span></li>
+    <li><b>04</b>核心机制<span>—— 漏服升级链 / 三级分诊 / 家属协同 / 个人基线</span></li>
+    <li><b>05</b>AI 能力全景<span>—— 四大 AI 模块与 AI 安全设计</span></li>
+    <li><b>06</b>技术方案<span>—— 秒哒平台承载的生产级架构 · 数据模型 · 工程质量</span></li>
+    <li><b>07</b>用户体验设计<span>—— 适老化不是口号，是可验收的硬指标</span></li>
+    <li><b>08</b>使用说明<span>—— 三端操作流程 · 60 秒体验动线 · 演示账号</span></li>
+    <li><b>09</b>应用前景与商业模式<span>—— 谁付费 · 进哪个科室 · 如何对接 HIS</span></li>
+    <li><b>10</b>迭代路线图<span>—— 从复赛到决赛的纵深化计划</span></li>
+  </ol>
+</div>
+
+<!-- ============ P3 01 痛点 ============ -->
+<div class="page sec">
+  <h2>01 痛点与场景洞察</h2>
+  <p class="lead">医疗照护存在一个结构性的「空窗期」：患者出院后的 2–8 周。</p>
+  <p>这段过渡期恰恰是风险最高的阶段：手术切口待愈合、用药方案刚调整、身体机能仍在恢复，但<strong>院内有护士盯着，长期慢病有多年习惯，唯独这两者之间的窗口期没人管</strong>。患者靠自己记医嘱、家属靠微信群问进度、护士靠出院时留的一张纸。</p>
+  <h3>三类真实痛点</h3>
+  <table>
+    <tr><th style="width:80px">角色</th><th>出院后的真实处境</th></tr>
+    <tr><td><b>患者</b></td><td>多为 60 岁以上术后老人：医嘱记不全（一天 3 种药 × 多个时段）、症状变化不会判断轻重、不适时不知该忍还是该去医院。</td></tr>
+    <tr><td><b>家属</b></td><td>白天上班无法陪护，想知道「今天药吃了没」只能打电话问；老人报喜不报忧，异常往往滞后得知。</td></tr>
+    <tr><td><b>医护</b></td><td>随访护士一人管上百名出院患者，靠「打电话 + 手工记录」；谁漏服、谁体征恶化，完全被动等患者上门，无分级无优先级。</td></tr>
+  </table>
+  <h3>与现有方案的本质区别</h3>
+  <p>医院现有随访系统的形态是「护士打电话 + 手工记录」；市面用药提醒 App 只解决「到点响铃」。两者的共同缺口是：<strong>多方协同动作没有变成可流转、可留痕、可追溯的状态</strong>。愈见 CareLoop 把「患者漏服了怎么办」这件事，做成患者、家属、护士<b>三方共享的一个状态机</b>——每一步自动流转、跨端实时可见、任一环节打卡即闭环。</p>
+  <div class="callout">场景契合说明：本作品定位与本届赛题「医疗健康」场景分类中的<b>诊后回访监测、患者问答、用药提醒</b>三项逐一对应，是官方参考场景的完整组合落地。</div>
+</div>
+
+<!-- ============ P4 02 用户与需求 ============ -->
+<div class="page sec">
+  <h2>02 目标用户与核心需求</h2>
+  <table>
+    <tr><th style="width:90px">角色</th><th style="width:32%">画像</th><th>核心需求 → 产品回应</th></tr>
+    <tr>
+      <td><b>患者</b><br><span class="muted">手机端</span></td>
+      <td>60+ 岁术后/慢病老人，如演示主角陈桂芳（68 岁，冠脉搭桥术后第 9 天）</td>
+      <td>「记不住医嘱」→ 出院小结拍照 AI 解析成用药计划<br>「不会描述症状」→ 语音输入 + 常见症状点选 + 三级分诊<br>「看不清字」→ 三档字号 + 消息语音朗读</td>
+    </tr>
+    <tr>
+      <td><b>家属</b><br><span class="muted">手机端</span></td>
+      <td>中年子女，工作日无法陪护，如陈明（患者之子，绑定关系 ACTIVE）</td>
+      <td>「随时知道今天状态」→ 照护概览 + 代打卡<br>「出事了第一时间知道」→ 漏服 30 分钟自动收到协助任务<br>「代填的数医护认不认」→ 每条记录带「家属代填」来源标注</td>
+    </tr>
+    <tr>
+      <td><b>医护</b><br><span class="muted">桌面工作台</span></td>
+      <td>随访护士，如王心怡（心外科随访护士），一人在管数十至上百名出院患者</td>
+      <td>「谁需要我关注」→ 预警中心按患者聚合 + 红黄分级<br>「这个人这两周发生了什么」→ 照护时间轴（体征/预警/处置一屏串起）<br>「处置了患者知不知道」→ 处理即自动回执到患者消息中心</td>
+    </tr>
+  </table>
+  <h3>需求优先级的原则</h3>
+  <p>我们刻意把需求收敛在「<strong>漏服 → 升级 → 处置</strong>」这一条主线上，而不是堆功能：用药提醒、症状自查、AI 问答都只是入口，真正的产品是它们串起来的<strong>处置闭环</strong>。评委可在作品内验证：患者端任何一个动作，家属端与医护端都会自动同步出现对应状态。</p>
+</div>
+
+<!-- ============ P5 03 产品总览 ============ -->
+<div class="page sec">
+  <h2>03 产品总览：三端一闭环</h2>
+  <div class="flow">
+    <div class="step"><div class="n">患者端 · 手机</div><div class="t">记录与求助</div><div class="d">今日概览 / 用药打卡 / 健康打卡 / 症状自查 / 智能问答 / 消息中心</div></div>
+    <div class="step"><div class="n">家属端 · 手机</div><div class="t">协同与补位</div><div class="d">照护概览 / 代打卡（带来源标注）/ 协助任务 / 消息中心</div></div>
+    <div class="step"><div class="n">医护端 · 工作台</div><div class="t">托底与处置</div><div class="d">患者管理 / 360 详情 + 照护时间轴 / 预警中心 / 随访报告 / 知识库</div></div>
+  </div>
+  <h3>四个差异化主张（均可在作品内当场验证）</h3>
+  <table>
+    <tr><th style="width:30%">主张</th><th>含义</th></tr>
+    <tr><td><b>① 升级链真实可追</b></td><td>漏服后 L0→L3 逐级升级（本人 → 家属 → 护士站），任一环节打卡即终止；每一步跨端实时可见，不是前端演示动画，是数据库真实状态流转。</td></tr>
+    <tr><td><b>② 分诊规则公开可查</b></td><td>红旗规则全文写在患者端「分级规则说明」面板，评委可当场点开；规则只兜底不包办，拿不准时从严。</td></tr>
+    <tr><td><b>③ 红色只留给真正的红旗</b></td><td>红 = 立即就医，黄 = 电话随访。漏服升级链最高到黄色「需医护回电」——徽章语义回归临床，不做告警疲劳。</td></tr>
+    <tr><td><b>④ 对照他自己</b></td><td>每个患者的体征基线是他本人近 7 天的滚动中位数 + 偏离带，而非人群正常值；报告与分诊都以「相对他自己的变化」为准。</td></tr>
+  </table>
+</div>
+
+<!-- ============ P6 04-1 升级链 ============ -->
+<div class="page sec">
+  <h2>04 核心机制</h2>
+  <h3>机制一：漏服升级链 L0 → L3（服务的状态机，不是提醒闹钟）</h3>
+  <div class="flow">
+    <div class="step"><div class="n">L0 · 到点</div><div class="t">基础提醒</div><div class="d">到达服药时段，患者端收到提醒；同时段多种药合并为一条（列出全部药名）</div></div>
+    <div class="step"><div class="n">漏服后</div><div class="t">第 1 级 · 提醒本人</div><div class="d">每 10 分钟再次提醒患者，可「已服 / 稍后 / 跳过」</div></div>
+    <div class="step"><div class="n">30 分钟</div><div class="t">第 2 级 · 家属协助</div><div class="d">家属端收到协助任务：代打卡 / 已电话联系 / 反馈「仍无响应」</div></div>
+    <div class="step"><div class="n">1 小时</div><div class="t">第 3 级 · 医护介入</div><div class="d">升级至医护预警中心（黄色「需医护回电」），处置后自动回执患者</div></div>
+  </div>
+  <ul>
+    <li><strong>终止条件：</strong>任一阶段完成有效打卡，升级链立即终止——不制造负罪感，全部服完时的空状态文案是「好好休息」。</li>
+    <li><strong>未绑定家属：</strong>跳过第 2 级，满 1 小时直接升级医护端（边界场景已覆盖）。</li>
+    <li><strong>家属「仍无响应」：</strong>转黄色交还医护回电，<b>不升级红色</b>（红色语义只留给分诊红旗与危险体征）。</li>
+    <li><strong>工程实现：</strong>pg_cron 每分钟扫描提醒状态机（每药一行 per-(计划,时段) 粒度），消息写入带 dedup_key 唯一索引幂等，同一事件绝不重复触发。</li>
+  </ul>
+  <h3>机制二：症状三级分诊，直通医护预警</h3>
+  <div class="grid3">
+    <div class="card"><div class="t"><span class="badge b-red">红 · 立即就医</span></div>红旗规则命中且严重度达标（如剧烈胸痛 ≥5/10）、体温 ≥39℃、收缩压 ≥180mmHg；自动生成医护端红色预警</div>
+    <div class="card"><div class="t"><span class="badge b-amber">黄 · 建议联系随访</span></div>低严重度命中红旗词 / 中度异常体征；24h 内医护电话评估，同时生成黄色预警</div>
+    <div class="card"><div class="t"><span class="badge b-green">绿 · 居家观察</span></div>症状轻微且体征正常；给常规康复指导，不惊扰任何人</div>
+  </div>
+  <p class="muted" style="margin-top:8px">规则与 AI 双通道：红旗规则兜底（含口语变体，如「胸口有点闷」），未命中交给大模型结合出院诊断、既往史、当前体征综合分级；AI 不可用时按严重度从严兜底。规则全文对患者公开，分级建议不做确诊承诺。</p>
+</div>
+
+<!-- ============ P7 04-2 协同+基线 ============ -->
+<div class="page sec">
+  <h3>机制三：家属协同，带来源标注</h3>
+  <p>家属可以代打卡、代填体征，但<strong>每一条代操作都带结构化的来源标注</strong>（操作人类型 = 家属、操作人姓名），医护端 360 视图有专门的「家属代填记录」卡，时间轴上有弱标签。<span class="badge b-blue">数据诚信</span> 这在医疗场景里不是锦上添花：家属代填的体征如果与本人自测混在一起，会污染临床判断。</p>
+  <h3>机制四：个人基线 —— 每个患者唯一的对照是他自己</h3>
+  <p>人群正常值对术后老人常常失真（68 岁术后患者的「正常血压」和体检标准不是一回事）。本作品用每个患者<strong>近 7 天打卡数据的滚动中位数 + MAD 偏离带</strong>作为他的个人基线：</p>
+  <ul>
+    <li>健康打卡页：今日数值对照「他自己的 usual 区间」给出人话反馈（「今天血压比您平时略高，已记录」）</li>
+    <li>症状分诊：输入体征时同时对照个人基线与通用参考值</li>
+    <li>样本不足（&lt;3 天）时明确标注「样本不足，暂用通用参考值」——<strong>不许装作有基线</strong></li>
+  </ul>
+  <h3>辅助机制：履约风险预测与最小打扰提醒</h3>
+  <table>
+    <tr><th style="width:35%">机制</th><th>作用</th></tr>
+    <tr><td><b>CareRisk 履约风险分</b></td><td>用近 14 天用药/打卡/症状轨迹计算每位患者的履约风险，帮护士把有限精力投给最可能脱管的人。</td></tr>
+    <tr><td><b>自适应提醒节奏</b></td><td>对长期依从性好的患者减少打扰频次，对易漏服患者加密提醒——把「提醒」从广播变成个性化。</td></tr>
+  </table>
+  <div class="callout red">三条主机制 + 两条辅助机制共用同一套真实数据底座（详见第 06 章），互相咬合：基线喂给分诊、风险分排随访优先级、升级链兜底触达——这是「机制」与「功能清单」的区别。</div>
+</div>
+
+<!-- ============ P8 05 AI 全景 ============ -->
+<div class="page sec">
+  <h2>05 AI 能力全景</h2>
+  <p class="lead">四个 AI 模块各管一段，全部围绕「让 2–8 周窗口期的信息流动起来」。</p>
+  <table>
+    <tr><th style="width:15%">模块</th><th style="width:28%">输入 → 输出</th><th>AI 在其中的核心作用</th></tr>
+    <tr>
+      <td><b>出院小结解析</b></td>
+      <td>出院小结拍照 / 上传 → 结构化用药计划草稿，患者确认后生效</td>
+      <td>多模态识别把纸质医嘱变成可执行数据，错误率远低于老人手抄；<b>AI 只出草稿，人确认才生效</b>，安全边界清晰。</td>
+    </tr>
+    <tr>
+      <td><b>症状三级分诊</b></td>
+      <td>主诉（语音/点选/文字）+ 严重度 + 体征 → 红/黄/绿分级 + 人话建议 + 证据</td>
+      <td>红旗规则兜底 + 大模型综合分级双通道；输出附带命中规则与个人基线对照的<b>证据说明</b>，可解释而非黑箱。</td>
+    </tr>
+    <tr>
+      <td><b>智能问答（RAG）</b></td>
+      <td>自然语言提问 → 流式回答 + <b>[依据: 个人医嘱 / 知识库《标题》]</b> 引用标注</td>
+      <td>双路检索（个人出院资料 + 院内知识库）喂给模型，只基于资料回答；识别高危症状时回答下方出现「一键同步医护端 / 直拨随访电话」动作卡。</td>
+    </tr>
+    <tr>
+      <td><b>随访报告生成</b></td>
+      <td>选定周期 → 依从率 / 体征趋势 / 预警处置统计 + 文字总结</td>
+      <td>把护士每周 2 小时的手工周报压成一次点击，统计口径与数据库一致。</td>
+    </tr>
+  </table>
+  <h3>AI 安全设计（医疗场景的生命线）</h3>
+  <ul>
+    <li><strong>不编造：</strong>资料中无依据时明确说「现有资料无法回答」并建议联系医护；知识库检索不到就如实说，不硬凑。</li>
+    <li><strong>不越界：</strong>不做确诊、不调整用药剂量；涉及病情变化一律建议就医；全站标注「不构成诊断」。</li>
+    <li><strong>可降级：</strong>AI 网关不可用时自动切换本地知识库检索，回答明确标注「本地检索 · 非 AI 回答」——<b>绝不把降级内容伪装成 AI 生成</b>；再退一步还有前端兜底。断网/限流场景下助手不会哑巴。</li>
+    <li><strong>可审计：</strong>分诊规则全文公开在患者端面板；问答带引用来源；家属代填带来源标注。</li>
+  </ul>
+</div>
+
+<!-- ============ P9 06 技术 ============ -->
+<div class="page sec">
+  <h2>06 技术方案：秒哒平台承载的生产级架构</h2>
+  <p class="lead">全部构建于百度智能云秒哒平台：前端应用与托管后端一体化交付，无本地数据库、无自建服务器。</p>
+  <div class="kv">
+    <div class="k">应用层</div><div>React + TypeScript + Tailwind（秒哒源码模板导出后持续迭代），三端一套代码，路由级代码分割</div>
+    <div class="k">数据层</div><div>秒哒托管 Supabase：PostgreSQL 14 张业务表 + <b>RLS 行级安全</b>（患者只能读自己的数据，医护按角色授权）</div>
+    <div class="k">服务层</div><div>8 个 Edge Functions（Deno 运行时）：分诊 / 问答 / 解析 / 报告 / 提醒扫描 / 计划确认 / 注册 / 预警响应</div>
+    <div class="k">调度层</div><div>pg_cron 每分钟驱动漏服升级链状态机；vault 管理密钥，敏感 key 不进前端</div>
+    <div class="k">实时层</div><div>Supabase Realtime（broadcast 通道）：任一端写操作成功后广播，其他端 400ms 内自动刷新，三窗口并排演示无需手动刷新</div>
+  </div>
+  <h3>数据模型（14 张表，迁移 00001–00020 只增不减）</h3>
+  <p class="muted">profiles / patients / care_relations / documents / medication_plans / medication_logs / followup_items / reminders / checkins / symptom_checks / alerts / messages / reports / knowledge_docs / daily_baseline</p>
+  <h3>工程质量：可验证的数字</h3>
+  <div class="grid3">
+    <div class="card"><div class="t">性能</div>首屏 JS <span class="num">1.88MB → 308KB</span>（路由级代码分割）；品牌字体两级子集化 <span class="num">3.45MB → 0.725MB（-79%）</span>，罕用字按需加载</div>
+    <div class="card"><div class="t">可靠性</div>消息 dedup_key 唯一索引幂等；AI 三级降级链；断网离线兜底（PWA 快照 + 恢复补传）；演示账号软隐藏不删数据</div>
+    <div class="card"><div class="t">质量门</div>类型检查 + Lint 五道门全绿才允许提交；三端 Playwright 自动化冒烟（登录扫页抓取 console 错误）；20 个 SQL 迁移全部幂等可重放</div>
+  </div>
+</div>
+
+<!-- ============ P10 07 体验 ============ -->
+<div class="page sec">
+  <h2>07 用户体验设计：适老化是硬指标，不是口号</h2>
+  <p class="lead">核心用户是 68 岁的老人——所有体验决策围绕「他能不能独立用起来」。</p>
+  <table>
+    <tr><th style="width:30%">能力</th><th>落地方式（全部已实现，可当场验收）</th></tr>
+    <tr><td><b>看得清</b></td><td>三档字号一键切换（根字号全局缩放，持久化），正文对比度 ≥4.5:1</td></tr>
+    <tr><td><b>听得懂</b></td><td>医嘱与消息一键语音朗读；提示语全部人话（「没有听到声音，请靠近一点再试一次」而非错误码）</td></tr>
+    <tr><td><b>说得出</b></td><td>症状自查支持语音输入（按住说话，中文识别）+ 8 个常见症状点选标签，主诉可全程免打字</td></tr>
+    <tr><td><b>点得准</b></td><td>触控目标 ≥44×44px；常用动作置顶、次要项折叠；「沿用上次数值」一键填充</td></tr>
+    <tr><td><b>分得清</b></td><td>风险三重编码（浅色底 + 图标 + 等级文字），绝不只靠颜色区分；红色只出现在真正紧急处</td></tr>
+    <tr><td><b>不被吵</b></td><td>同时段多药合并为一条提醒；预警中心按患者聚合（先处理人再处理事）；消息按紧急度排序、未读置顶、降噪折叠</td></tr>
+  </table>
+  <h3>三端形态刻意不同</h3>
+  <p>患者端 / 家属端是手机竖屏体验（桌面访问时渲染设备框，明确移动端定位）；医护端是桌面宽屏工作台（左侧导航 + 数据看板）——<strong>跟随真实使用场景，而不是一套界面硬套三个角色</strong>。护士在电脑前集中处理，老人和家属在手机上碎片操作。</p>
+</div>
+
+<!-- ============ P11 08 使用说明 ============ -->
+<div class="page sec">
+  <h2>08 使用说明</h2>
+  <h3>入口与登录</h3>
+  <p>作品链接打开即为宣传落地页（照护闭环 / 升级链路 / 三级分诊的图文介绍），右上角「开始使用」进入登录页。登录页提供<b>两步演示登录</b>：先选身份（患者 / 家属 / 医护），再点对应演示账号一键填入。</p>
+  <table>
+    <tr><th>角色</th><th>演示账号</th><th>身份设定</th></tr>
+    <tr><td>患者</td><td>guifang@miaoda.com</td><td>陈桂芳，68 岁，冠脉搭桥术后第 9 天</td></tr>
+    <tr><td>患者</td><td>jianguo@miaoda.com</td><td>周建国，59 岁，高血压 3 级</td></tr>
+    <tr><td>家属</td><td>chenming@miaoda.com</td><td>陈明，陈桂芳之子（ACTIVE 绑定）</td></tr>
+    <tr><td>医护</td><td>doctor_wang@miaoda.com</td><td>王心怡，心外科随访护士</td></tr>
+  </table>
+  <h3>建议体验路径（60 秒版）</h3>
+  <ol>
+    <li><b>患者端 · 症状自查：</b>点选「胸闷」+ 语音输入补充，严重度拖到 2/10 → 判黄；再拖到 7/10 → 判红，<b>切到医护端预警中心，同一条红色预警已自动出现</b>（跨端实时，无需刷新）。</li>
+    <li><b>医护端 · 预警中心：</b>多条预警默认按患者聚合（组卡显示「红色 · 3 条未处理｜用药 ×2 · 分诊 ×1」），点开处理、填处置结论。</li>
+    <li><b>患者端 · 消息中心：</b>出现「医护已查看您的上报」回执——闭环最后一跳。</li>
+    <li><b>家属端 · 待协助任务：</b>对漏服任务选择「仍无响应」→ 医护端该条变为黄色「需医护回电」。</li>
+    <li><b>患者端 · 智能问答：</b>问「服药后恶心」→ 流式回答 + [依据: 个人医嘱] 引用标注；今日页一键切「大」字号。</li>
+  </ol>
+  <p class="muted">完整操作：患者完成用药打卡（已服/稍后/跳过）与健康打卡（体征录入对照个人基线）；家属在概览页查看照护对象今日进度并代打卡（医护端可见「家属代填」标注）；医护在 360 详情的照护时间轴里纵览「出院 → 每日 → 异常 → 干预 → 转归」。</p>
+</div>
+
+<!-- ============ P12 09 商业 ============ -->
+<div class="page sec">
+  <h2>09 应用前景与商业模式</h2>
+  <h3>谁付费，进哪个科室</h3>
+  <table>
+    <tr><th style="width:110px">要素</th><th>答案</th></tr>
+    <tr><td><b>目标客户</b></td><td>二甲以上医院心外科、骨科等<b>术后科室的随访护士团队</b>（全国仅心外科年手术量即以十万计，出院过渡期管理是刚需空白）</td></tr>
+    <tr><td><b>付费方</b></td><td>医院随访外包服务商 / 科室运营预算，按<b>在管患者数订阅</b>（人均月费低、科室总预算友好）</td></tr>
+    <tr><td><b>推广路径</b></td><td>单科室试点（1 名护士 + 30 名患者即可跑通闭环）→ 院内复制 → 区域随访外包平台。对患者与家属永久免费——守住依从性数据源。</td></tr>
+    <tr><td><b>与 HIS 对接</b></td><td>后端为标准 Postgres，HIS 侧只需在出院事件发生时 webhook 推送患者基本信息与医嘱、随访结论回写即可；<b>支持私有化部署</b>（医疗数据不出院）。</td></tr>
+    <tr><td><b>商业化边界</b></td><td>真实短信/推送网关按需接入；演示环境已诚实标注「演示通道」，不冒充生产能力。</td></tr>
+  </table>
+  <h3>为什么这件事发生在现在</h3>
+  <ul>
+    <li><b>政策面：</b>术后加速康复（ERAS）与延续性护理被持续写入护理质控方向，出院随访从「nice to have」变成考核项。</li>
+    <li><b>技术面：</b>无代码平台 + 托管后端让「三端 + 状态机 + AI」这种量级的系统可以被学生团队在一个比赛周期内做出生产级完成度——这本身即是本赛题价值的证明。</li>
+    <li><b>结构面：</b>老龄化 + 独生子女照护结构，家属远程协同是唯一可规模化的补位方案。</li>
+  </ul>
+</div>
+
+<!-- ============ P13 10 路线图 ============ -->
+<div class="page sec">
+  <h2>10 迭代路线图</h2>
+  <table>
+    <tr><th style="width:36%">方向</th><th>内容</th></tr>
+    <tr><td><b>分诊可解释性深化</b></td><td>分级结果输出结构化证据链（命中规则 / 超标体征 / 基线偏离），医护端可查每一次判定的依据——从「AI 判断」到「AI 可审计判断」。</td></tr>
+    <tr><td><b>报告趋势归因</b></td><td>随访报告从统计汇总升级为异常归因（「收缩压连续 5 天高于本人基线上界」），让「对照他自己」的卖点贯穿到 AI 报告。</td></tr>
+    <tr><td><b>风险自适应升级链</b></td><td>把已有的 CareRisk 履约风险分接入升级链节奏：高风险患者升级更快、低依从患者提醒加密、依从良好者最小打扰。</td></tr>
+    <tr><td><b>真实场景验证</b></td><td>联合 1 个科室、5–10 名真实出院患者与 1 名随访护士做小样本试点，用实测依从率、预警响应时长替换纸面论证。</td></tr>
+    <tr><td><b>生产化</b></td><td>真实短信/推送网关、等保与个保法合规审计、HIS webhook 对接方案落地。</td></tr>
+  </table>
+  <h3>结语</h3>
+  <p>愈见 CareLoop 没有发明任何单一功能——用药提醒、AI 问答、拍照识别都早已存在。我们做的是把它们拧成一条<strong>「患者 → 家属 → 护士」三方共享的处置状态机</strong>，让出院后最危险的几周第一次有了「不依赖任何人自觉」的照护底座。三个机制、四个 AI 模块、14 张真实流转的数据表——欢迎在作品里逐项验证。</p>
+  <div class="callout">本作品为参赛团队原创，基于百度智能云秒哒平台构建；全部医疗建议均标注「不构成诊断」，演示数据均为虚构脱敏。</div>
+</div>
+
+</body>
+</html>
